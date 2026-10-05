@@ -15,7 +15,7 @@ The versions and minimums this plugin builds against, and why. Checked against l
 
 | | Value | Why |
 |---|---|---|
-| Minimum Flutter | **3.44** | First release with Swift Package Manager on by default, which the iOS SDK requires (see below) |
+| Minimum Flutter | **3.44** (Dart 3.12) | First release with Swift Package Manager on by default, which the iOS SDK requires (see below) |
 | Development Flutter | latest stable (3.47.6 / Dart 3.13.5 at time of writing) | Pigeon 29 needs Dart ≥ 3.11 |
 | CI matrix | Flutter 3.44 + latest stable | Proves the stated minimum actually works |
 | Runtime dependencies | none besides `flutter` | Fewer version conflicts for apps using the plugin |
@@ -28,7 +28,7 @@ The versions and minimums this plugin builds against, and why. Checked against l
 |---|---|---|
 | Twilio SDK | `twilio/conversations-ios` **4.0.9+**, `upToNextMajor` | Latest release (Aug 2026) |
 | Dependency manager | **Swift Package Manager only** | See below |
-| Minimum iOS | **13.0** | Twilio's own minimum. Apps can set a higher one |
+| Minimum iOS | **15.0** | Flutter itself requires iOS 15.0 (the engine's minimum since at least 3.47), so the plugin can't go lower. Twilio supports 13.0 |
 | Language | Swift | |
 
 **Why no CocoaPods:** Twilio published its iOS SDK to CocoaPods up to 4.0.2 (August 2023) only. Every release since (4.0.3–4.0.9) is available through Swift Package Manager alone. The alternatives were:

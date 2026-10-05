@@ -2,7 +2,7 @@
 
 An **unofficial** Flutter plugin for [Twilio Conversations](https://www.twilio.com/docs/conversations-classic), wrapping Twilio's native iOS and Android Conversations SDKs behind a typed Dart API.
 
-> **Status: planning.** No code has been written yet; the API and architecture are still being designed.
+> **Status: in development.** The plugin scaffold builds on iOS and Android; the API isn't implemented yet. See [docs/](docs/) for the design.
 
 ## Goals
 
@@ -12,7 +12,13 @@ An **unofficial** Flutter plugin for [Twilio Conversations](https://www.twilio.c
 - Realtime events (messages, typing, read state, connection, token expiry) exposed as Dart streams.
 - Media attachments sent by file path, with upload progress.
 - Optional Twilio push registration (APNs / FCM) for apps that use Twilio's native push.
-- iOS support through both Swift Package Manager and CocoaPods.
+- iOS support through Swift Package Manager (see [technical parameters](docs/technical-parameters.md) for why not CocoaPods).
+
+## Requirements
+
+- Flutter 3.44 or later (Dart 3.12+)
+- iOS 15.0+, with Swift Package Manager enabled
+- Android 7.0+ (API 24)
 
 ## Disclaimer
 

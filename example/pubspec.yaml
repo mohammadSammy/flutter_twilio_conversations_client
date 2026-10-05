@@ -1,0 +1,24 @@
+name: flutter_twilio_conversations_client_example
+description: "Example and test app for the flutter_twilio_conversations_client plugin."
+publish_to: none
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_twilio_conversations_client:
+    path: ../
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  # The plugin supports Swift Package Manager only, whatever the machine's global setting.
+  config:
+    enable-swift-package-manager: true

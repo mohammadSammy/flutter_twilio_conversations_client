@@ -1,0 +1,29 @@
+name: flutter_twilio_conversations_client
+description: "Unofficial Flutter plugin for Twilio Conversations, wrapping the native iOS and Android SDKs."
+version: 0.1.0
+repository: https://github.com/mohammadSammy/flutter_twilio_conversations_client
+issue_tracker: https://github.com/mohammadSammy/flutter_twilio_conversations_client/issues
+# No licence has been chosen yet, so nothing may be published.
+publish_to: none
+
+environment:
+  sdk: ^3.12.0
+  flutter: ">=3.44.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: com.identity_solutions.twilio_conversations
+        pluginClass: FlutterTwilioConversationsClientPlugin
+      ios:
+        pluginClass: FlutterTwilioConversationsClientPlugin
