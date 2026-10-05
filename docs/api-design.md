@@ -428,4 +428,4 @@ await client.shutdown();                                   // on logout
 - [ ] Twilio's push payload keys for `TwilioPushPayload` on both platforms (C9).
 - [ ] Which Twilio error codes map to `ConversationNotFoundException` and `TokenException` on each platform (C10).
 - [ ] Twilio's media size limit, so `sendMedia` can fail early with a clear `MediaUploadException`.
-- [ ] Whether Twilio's Android library ships its own R8 keep rules; if not, add `consumer-rules.pro`.
+- [x] Whether Twilio's Android library ships its own R8 keep rules. It does (`com.twilio.**`), but its Tink dependency still breaks release builds, so the plugin ships `consumer-rules.pro` (see technical parameters).

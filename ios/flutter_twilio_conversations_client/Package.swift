@@ -12,13 +12,15 @@ let package = Package(
         .library(name: "flutter-twilio-conversations-client", targets: ["flutter_twilio_conversations_client"])
     ],
     dependencies: [
-        .package(name: "FlutterFramework", path: "../FlutterFramework")
+        .package(name: "FlutterFramework", path: "../FlutterFramework"),
+        .package(url: "https://github.com/twilio/conversations-ios", .upToNextMajor(from: "4.0.9"))
     ],
     targets: [
         .target(
             name: "flutter_twilio_conversations_client",
             dependencies: [
-                .product(name: "FlutterFramework", package: "FlutterFramework")
+                .product(name: "FlutterFramework", package: "FlutterFramework"),
+                .product(name: "TwilioConversationsClient", package: "conversations-ios")
             ],
             resources: [
                 // If your plugin requires a privacy manifest, for example if it uses any required

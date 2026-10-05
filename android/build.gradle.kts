@@ -46,6 +46,7 @@ android {
 
     defaultConfig {
         minSdk = 24
+        consumerProguardFiles("consumer-rules.pro")
     }
 
     testOptions {
@@ -72,6 +73,8 @@ kotlin {
 }
 
 dependencies {
+    implementation("com.twilio:conversations-android:6.2.1")
+
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.mockito:mockito-core:5.0.0")
 }

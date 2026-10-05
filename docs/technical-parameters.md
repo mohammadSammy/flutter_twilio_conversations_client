@@ -26,7 +26,7 @@ The versions and minimums this plugin builds against, and why. Checked against l
 
 | | Value | Why |
 |---|---|---|
-| Twilio SDK | `twilio/conversations-ios` **4.0.9+**, `upToNextMajor` | Latest release (Aug 2026) |
+| Twilio SDK | `twilio/conversations-ios` **4.0.9+**, `upToNextMajor` | Latest release (Aug 2026). Also resolves `twilio/twilsock-ios` 3.0.2 |
 | Dependency manager | **Swift Package Manager only** | See below |
 | Minimum iOS | **15.0** | Flutter itself requires iOS 15.0 (the engine's minimum since at least 3.47), so the plugin can't go lower. Twilio supports 13.0 |
 | Language | Swift | |
@@ -41,12 +41,12 @@ Apps on Flutter < 3.44, or with Swift Package Manager disabled, are not supporte
 
 | | Value | Why |
 |---|---|---|
-| Twilio SDK | `com.twilio:conversations-android` **6.2.1** | Latest release |
+| Twilio SDK | `com.twilio:conversations-android` **6.2.1** | Latest release. Brings Twilio `twilsock`, Kotlin coroutines and Ktor 3.1.2; adds the INTERNET and network-state permissions |
 | minSdk | **24** (Android 7.0) | Flutter's default. Twilio supports down to 21, so it can be lowered on request |
 | compileSdk | 36 | Flutter's current default |
 | Java / JVM target | 17 | Required by current Android Gradle tooling |
 | Language | Kotlin | |
-| R8 keep rules | to be checked (see API design §15) | |
+| R8 keep rules | `android/consumer-rules.pro`, applied to every app automatically | Twilio ships `-keep class com.twilio.**`, but its dependency chain (`shared-internal` → `androidx.security:security-crypto` → Tink) references compile-only annotations that make R8 fail release builds |
 
 ## Sources
 
