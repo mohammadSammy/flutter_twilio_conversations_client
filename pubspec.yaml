@@ -18,8 +18,14 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  # Pinned exactly so regenerating never changes the bridge unexpectedly.
+  pigeon: 29.0.6
 
 flutter:
+  # Commands run from this folder also set up example/, so they need the same
+  # setting as example/pubspec.yaml, whatever the machine's global default.
+  config:
+    enable-swift-package-manager: true
   plugin:
     platforms:
       android:

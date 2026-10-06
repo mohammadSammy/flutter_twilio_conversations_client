@@ -388,7 +388,8 @@ abstract class ConversationsEventApi {
 
 - `@async` lets native code answer later, which matches the SDKs' completion callbacks.
 - Upload progress travels as `UploadProgressEvent(uploadId, bytesSent)` on the event channel. `MediaSend` filters by its `uploadId`.
-- To verify in C4: Pigeon's support for sealed classes over event channels. Fallback: one `PlatformEvent` class with a `type` enum and nullable fields.
+- Sealed event classes are supported (verified in C4), so each event is its own class. The two token events share one `TokenEvent` with a type enum.
+- Pigeon 29 generates `suspend` functions in Kotlin (run on the main dispatcher) and `async throws` in Swift.
 
 ## 13. Threading and app lifecycle
 
@@ -424,7 +425,7 @@ await client.shutdown();                                   // on logout
 ## 15. Still to verify
 
 - [ ] Each mapping in §11 against the current SDK docs (C5/C6).
-- [ ] Pigeon sealed classes over event channels (C4).
+- [x] Pigeon sealed classes over event channels: supported in Pigeon 29 for Swift, Kotlin and Dart, including empty subclasses. Used in `pigeons/conversations_api.dart`.
 - [ ] Twilio's push payload keys for `TwilioPushPayload` on both platforms (C9).
 - [ ] Which Twilio error codes map to `ConversationNotFoundException` and `TokenException` on each platform (C10).
 - [ ] Twilio's media size limit, so `sendMedia` can fail early with a clear `MediaUploadException`.
