@@ -1,6 +1,6 @@
 # API design (draft)
 
-Status: **draft for review**. No code exists yet. This document is the contract the Dart, Swift and Kotlin code will be written against, so it should be agreed before step C4 (generating the Pigeon bindings).
+Status: **T1 implemented** (native code in C5/C6, Dart API in C7), except push payload parsing and push registration queuing (C9). Where the code differs from the first draft, this document has been updated to match the code.
 
 Tier markers:
 - **T1**: in the first release.
@@ -26,11 +26,12 @@ flutter_twilio_conversations_client/
     flutter_twilio_conversations_client.dart   ← exports the public API only
     src/
       client.dart                ← TwilioConversationsClient
-      models/                    ← Conversation, Message, Media, Participant, enums
+      models.dart                ← Conversation, Message, Media, Participant, enums
+      media.dart                 ← MediaUpload, MediaSend
       events.dart                ← ConversationsEvent (sealed)
       errors.dart                ← ConversationsException (sealed)
-      token.dart                 ← TokenProvider, token refresh logic
-      push.dart                  ← PushToken, TwilioPushPayload
+      token.dart                 ← TokenProvider, reading a token's expiry (refresh logic is in client.dart)
+      push.dart                  ← PushToken (TwilioPushPayload arrives in C9)
       platform/
         conversations_platform.dart   ← internal interface (what a platform must provide)
         pigeon_platform.dart          ← implementation backed by Pigeon
@@ -64,7 +65,7 @@ final class TwilioConversationsClient {
 
   String get myIdentity;                        // identity from the token        T1
   ConnectionState get connectionState;          // latest known value             T1
-  SyncStatus get syncStatus;                    // latest known value             T1
+  SyncStatus? get syncStatus;                   // latest known value; null until the first report  T1
   DateTime? get tokenExpiresAt;                 // §4                             T1
 
   /// Completes when sync reaches `completed`; throws if sync fails.              T1
@@ -264,7 +265,7 @@ Design notes:
 - **Why the parser is pure Dart:** push handlers often run in a background isolate (`FirebaseMessaging.onBackgroundMessage`), where the Twilio client doesn't exist. A pure function works there.
 - **What the plugin doesn't do:** obtain push tokens, ask for permission, or show notifications. That's `firebase_messaging` and `flutter_local_notifications`, which the app already uses.
 - **Server-side prerequisites, documented in the README:** the Twilio Conversations service needs an APNs and/or FCM credential with push turned on, and the token's chat grant must reference that credential.
-- **Register after sync completes.** The plugin queues a registration made earlier and sends it once sync completes, so apps don't need to coordinate this.
+- **Register after sync completes.** Planned for C9: the plugin queues a registration made earlier and sends it once sync completes, so apps don't need to coordinate this. Until then, call `registerPushToken` after `waitUntilSynced`.
 
 ## 9. Models
 
@@ -275,7 +276,8 @@ final class Conversation {
   final String sid;
   final String? uniqueName;
   final String? friendlyName;
-  final Object? attributes;          // decoded JSON: Map, List, String, num, bool or null
+  final String? attributesJson;      // as Twilio stores it
+  Object? get attributes;            // decoded JSON: Map, List, String, num, bool or null
   final ConversationStatus status;   // joined | notParticipating
   final int? lastMessageIndex;
   final DateTime? lastMessageDate;
@@ -291,7 +293,8 @@ final class Message {
   final String? author;              // identity of the sender
   final String? body;
   final DateTime? dateCreated;
-  final Object? attributes;
+  final String? attributesJson;
+  Object? get attributes;
   final List<Media> media;
   final String? participantSid;
 }
@@ -309,11 +312,12 @@ final class Participant {
   final String? identity;
   final DateTime? dateCreated;       // when they joined
   final int? lastReadMessageIndex;
-  final Object? attributes;
+  final String? attributesJson;
+  Object? get attributes;
 }
 ```
 
-- **Attributes are `Object?`**, because Twilio allows any JSON value there, not only objects. They cross the bridge as a JSON string and are decoded once in Dart, so iOS and Android can't disagree on types.
+- **Attributes are `Object?`**, because Twilio allows any JSON value there, not only objects. They cross the bridge as a JSON string, which the models keep as `attributesJson` and decode in Dart on demand, so iOS and Android can't disagree on types. Equality compares that text, so two snapshots with the same attributes are equal without a deep comparison.
 - **Dates cross the bridge as epoch milliseconds (UTC)** and become `DateTime` in Dart. That avoids timezone and date-format mismatches between the platforms.
 - **Indexes are `int`.** Dart's 64-bit int holds Twilio's indexes on both platforms.
 
@@ -331,6 +335,8 @@ final class TokenException                    extends ConversationsException {} 
 final class MediaUploadException              extends ConversationsException {} // file missing or unreadable, upload failed
 final class TwilioException                   extends ConversationsException {} // anything else, code + message kept
 ```
+
+**Where the mapping lives:** native code reports a small set of codes (`not_connected`, `already_connected`, `media_upload`, …) and passes every other Twilio failure as `twilio` with Twilio's numeric code. Dart turns those into exception types in one place (`lib/src/errors.dart`), so both platforms share one table. Seen on both platforms so far: 50350 → `ConversationNotFoundException`.
 
 **Why a few specific types plus a catch-all:** apps branch on a small number of situations: left the group, token problem, upload failed. Everything else keeps Twilio's own code and message for logs, without us guessing at hundreds of codes. The exact code-to-type mapping is pinned down during implementation by triggering each case on both platforms.
 

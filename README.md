@@ -2,7 +2,33 @@
 
 An **unofficial** Flutter plugin for [Twilio Conversations](https://www.twilio.com/docs/conversations-classic), wrapping Twilio's native iOS and Android Conversations SDKs behind a typed Dart API.
 
-> **Status: in development.** The plugin scaffold builds on iOS and Android; the API isn't implemented yet. See [docs/](docs/) for the design.
+> **Status: in development, not published.** The first-release API works on iOS and Android and is tested on real devices. Push payload parsing and the example app are still to come. See [docs/](docs/) for the design.
+
+## Usage
+
+```dart
+final client = await TwilioConversationsClient.connect(
+  token: await myBackend.fetchTwilioToken(),
+  tokenProvider: myBackend.fetchTwilioToken, // optional: refreshes the token by itself
+);
+await client.waitUntilSynced();
+
+client.events.listen((event) => switch (event) {
+  MessageAdded(:final message) => print('${message.author}: ${message.body}'),
+  _ => null,
+});
+
+final conversation = await client.getConversation('my-conversation');
+await client.sendText(conversation.sid, 'Hello');
+
+final upload = client.sendMedia(conversation.sid, MediaUpload(filePath: path, contentType: 'image/jpeg'));
+upload.bytesSent.listen((sent) => print('$sent of ${upload.totalBytes} bytes'));
+await upload.message;
+
+await client.shutdown(); // on logout
+```
+
+Access tokens come from your own backend: minting one needs the Twilio API key secret, which must never ship in an app.
 
 ## Goals
 
