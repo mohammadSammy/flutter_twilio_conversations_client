@@ -34,7 +34,11 @@ void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   // Profile builds on iOS log only to the system log. Writing to stdout as well lets
   // `xcrun devicectl device process launch --console` show failures and results.
-  debugPrint = (message, {wrapWidth}) => stdout.writeln(message);
+  final flutterPrint = debugPrint;
+  debugPrint = (message, {wrapWidth}) {
+    flutterPrint(message, wrapWidth: wrapWidth);
+    if (Platform.isIOS) stdout.writeln(message);
+  };
 
   final api = ConversationsHostApi();
   final received = <PlatformEvent>[];

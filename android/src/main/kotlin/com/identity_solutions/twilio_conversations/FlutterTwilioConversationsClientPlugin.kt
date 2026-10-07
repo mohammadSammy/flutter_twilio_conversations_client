@@ -6,7 +6,7 @@ import io.flutter.embedding.engine.plugins.FlutterPlugin
 class FlutterTwilioConversationsClientPlugin : FlutterPlugin {
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         val events = ConversationsEvents()
-        ConversationsHostApi.setUp(binding.binaryMessenger, ConversationsHostApiImpl(events))
+        ConversationsHostApi.setUp(binding.binaryMessenger, ConversationsHostApiImpl(binding.applicationContext, events))
         EventsStreamHandler.register(binding.binaryMessenger, events)
     }
 

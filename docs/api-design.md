@@ -352,15 +352,15 @@ final class TwilioException                   extends ConversationsException {} 
 | `getUnreadMessagesCount` | `conversation.getUnreadMessagesCount(completion:)` | `conversation.getUnreadMessagesCount(callback)` |
 | `setLastReadMessageIndex` | `conversation.setLastReadMessageIndex(_:completion:)` | `conversation.setLastReadMessageIndex(index, callback)` |
 | `sendText` | `prepareMessage().setBody(_:).buildAndSend(completion:)` | `prepareMessage().setBody().buildAndSend` |
-| `sendMedia` | `prepareMessage().addMedia(inputStream:contentType:filename:listener:)` | `prepareMessage().addMedia(inputStream, …, MediaUploadListener)` |
+| `sendMedia` | `prepareMessage().addMedia(inputStream:contentType:filename:listener:)` | `prepareMessage().addMedia(inputStream, contentType, filename, MediaUploadListener)` |
 | `typing` | `conversation.typing()` | `conversation.typing()` |
-| `getMediaTemporaryUrl` | `conversation.message(withIndex:completion:)` → `media.getTemporaryContentUrl(completion:)` | message by index → `media.getTemporaryContentUrl` |
+| `getMediaTemporaryUrl` | `conversation.message(withIndex:completion:)` → `media.getTemporaryContentUrl(completion:)` | `conversation.getMessageByIndex(index)` → `media.getTemporaryContentUrl` |
 | `registerPushToken` | `client.register(withNotificationToken:completion:)` (APNs `Data`) | `client.registerFCMToken(FCMToken(token), listener)` |
 | `MessageAdded` (all conversations) | client delegate `conversationsClient(_:conversation:messageAdded:)` | a `ConversationListener` added to each conversation by the plugin |
 | `TypingStarted/Ended` | client delegate `typingStartedOn` / `typingEndedOn` | `ConversationListener.onTypingStarted/Ended` |
 | token events | `conversationsClientTokenWillExpire` / `TokenExpired` | `onTokenAboutToExpire` / `onTokenExpired` |
 
-The iOS column compiles against `TwilioConversationsClient` 4.0.9 (C5). The Android column is still the plan until C6.
+The iOS column compiles against `TwilioConversationsClient` 4.0.9 (C5), the Android column against `conversations-android` 6.2.1 (C6). On Android the plugin calls most of these through the SDK's own coroutine extensions (`com.twilio.conversations.extensions`), which wrap the callback versions listed here and fail with `TwilioException`.
 
 ## 12. The native bridge (internal, for C4)
 
@@ -425,9 +425,9 @@ await client.shutdown();                                   // on logout
 ## 15. Still to verify
 
 - [x] Each iOS mapping in §11 against the 4.0.9 SDK (C5).
-- [ ] Each Android mapping in §11 against the 6.2.1 SDK (C6).
+- [x] Each Android mapping in §11 against the 6.2.1 SDK (C6).
 - [x] Pigeon sealed classes over event channels: supported in Pigeon 29 for Swift, Kotlin and Dart, including empty subclasses. Used in `pigeons/conversations_api.dart`.
 - [ ] Twilio's push payload keys for `TwilioPushPayload` on both platforms (C9).
-- [ ] Which Twilio error codes map to `ConversationNotFoundException` and `TokenException` on each platform (C10). Seen so far: iOS answers a missing conversation with 50350 "Conversation not found" (C5).
+- [ ] Which Twilio error codes map to `ConversationNotFoundException` and `TokenException` on each platform (C10). Seen so far: both platforms answer a missing conversation with 50350 "Conversation not found" (C5, C6).
 - [ ] Twilio's media size limit, so `sendMedia` can fail early with a clear `MediaUploadException`.
 - [x] Whether Twilio's Android library ships its own R8 keep rules. It does (`com.twilio.**`), but its Tink dependency still breaks release builds, so the plugin ships `consumer-rules.pro` (see technical parameters).
