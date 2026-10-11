@@ -71,6 +71,10 @@ void main() {
         PlatformException(code: 'twilio', message: 'User not participant of conversation', details: 50430),
         isA<ConversationNotFoundException>().having((e) => e.twilioCode, 'twilioCode', 50430),
       );
+      await expectError(
+        PlatformException(code: 'twilio', message: 'UNAUTHORIZED', details: 5),
+        isA<TokenException>().having((e) => e.twilioCode, 'twilioCode', 5),
+      );
       await expectError(PlatformException(code: 'media_upload', message: 'm'), isA<MediaUploadException>());
       await expectError(PlatformException(code: 'not_connected', message: 'm'), isA<NotConnectedException>());
       await expectError(PlatformException(code: 'twilio', message: 'm', details: 1), isA<TwilioException>());

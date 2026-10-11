@@ -72,6 +72,8 @@ ConversationsException exceptionFromPlatform(PlatformException e) {
       message,
       twilioCode: twilioCode,
     ),
+    // Both SDKs reject a malformed or expired token on connect as code 5 "UNAUTHORIZED"; 5 alone is too vague.
+    _ when twilioCode == 5 && message == 'UNAUTHORIZED' => TokenException(message, twilioCode: twilioCode),
     _ => TwilioException(message, twilioCode: twilioCode),
   };
 }

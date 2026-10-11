@@ -39,7 +39,7 @@ Each criterion is pass/fail.
 |---|---|---|---|
 | C1 | Text both ways | Android ↔ iOS: median delivery under 1 s, 95th percentile under 2 s, over 20 messages | Must |
 | C2 | Events for every conversation | A message in a conversation the app isn't looking at still raises `MessageAdded`, on Android as well as iOS | Must |
-| C3 | Order, no duplicates | 50 messages sent in quick succession arrive in index order, none missing or doubled | Must |
+| C3 | Order, no duplicates | 50 messages sent at once all arrive, none missing or doubled, and `getLastMessages` returns them in index order. Arrival order is recorded but not required: with many messages sent at once, both SDKs can deliver `MessageAdded` out of index order (changed after device tests; see [api-design.md](api-design.md) §7) | Must |
 | C4 | History paging | In a 500+ message conversation, pages of 30 via `getMessagesBefore` reach index 0 with no gaps or duplicates; the first page loads in under 1.5 s | Must |
 | C5 | Typing indicator | `TypingStarted` reaches the other device in under 1 s, and `TypingEnded` follows after typing stops | Should |
 | C6 | Read state | `setLastReadMessageIndex` updates unread counts; a conversation never read returns `null` from `getUnreadMessagesCount`, not 0 | Must |

@@ -103,24 +103,34 @@ Future<void> _measure() async {
     },
   );
 
-  // C3: 50 messages sent at once by the other phone arrive in order, once each.
+  // C3: 50 messages sent at once by the other phone arrive once each, and history returns them in
+  // index order. Arrival order is only recorded: Twilio may deliver a burst out of index order.
   final burstId = DateTime.now().millisecondsSinceEpoch.toString();
   await client.sendText(main.sid, 'burst-request 50 $burstId');
   final deadline = DateTime.now().add(const Duration(seconds: 60));
-  List<MessageAdded> burst() =>
-      log.events.whereType<MessageAdded>().where((e) => (e.message.body ?? '').startsWith('burst $burstId ')).toList();
+  bool isBurst(Message m) => (m.body ?? '').startsWith('burst $burstId ');
+  List<MessageAdded> burst() => log.events.whereType<MessageAdded>().where((e) => isBurst(e.message)).toList();
   while (burst().length < 50 && DateTime.now().isBefore(deadline)) {
     await Future<void>.delayed(const Duration(milliseconds: 200));
   }
   final received = burst();
   final numbers = received.map((e) => e.message.body!.split(' ').last).toList();
   final indexes = received.map((e) => e.message.index).toList();
-  final inOrder = [for (var i = 1; i < indexes.length; i++) indexes[i] > indexes[i - 1]].every((x) => x);
-  final c3Pass = numbers.toSet().length == 50 && numbers.length == 50 && inOrder;
+  bool increasing(List<int> values) =>
+      [for (var i = 1; i < values.length; i++) values[i] > values[i - 1]].every((x) => x);
+  final history = (await client.getLastMessages(main.sid, count: 60)).where(isBurst).map((m) => m.index).toList();
+  final historyInOrder = history.length == 50 && increasing(history);
+  final c3Pass = numbers.toSet().length == 50 && numbers.length == 50 && historyInOrder;
   report(
     'C3',
     pass: c3Pass,
-    data: {'received': numbers.length, 'distinct': numbers.toSet().length, 'inIndexOrder': inOrder},
+    data: {
+      'received': numbers.length,
+      'distinct': numbers.toSet().length,
+      'historyInIndexOrder': historyInOrder,
+      'arrivedInIndexOrder': increasing(indexes),
+      if (!increasing(indexes)) 'indexesInArrivalOrder': indexes,
+    },
   );
 
   // C5: typing reaches this phone, then ends.

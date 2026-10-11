@@ -57,6 +57,8 @@ class ConversationsHostApiImpl(
                 override fun onSuccess(result: ConversationsClient) {
                     // Added here, not after resuming, so no early connection or sync event is missed.
                     result.addListener(clientListener)
+                    // Conversations restored from Twilio's local cache may already be here, without onConversationAdded.
+                    result.myConversations.forEach(::listenTo)
                     continuation.resume(result)
                 }
 
@@ -269,6 +271,7 @@ class ConversationsHostApiImpl(
         override fun onClientSynchronization(status: ConversationsClient.SynchronizationStatus) {
             val platform = status.platform ?: return
             syncStatus = platform
+            if (status == ConversationsClient.SynchronizationStatus.COMPLETED) client?.myConversations?.forEach(::listenTo)
             events.send(SyncStatusEvent(platform))
         }
 

@@ -236,6 +236,7 @@ Design notes:
 - **`sealed` means `switch` must handle every case.** The compiler catches a missing case, and adding an event in a later version shows up as a compile warning, not a silent gap.
 - **`MessageAdded` carries the conversation snapshot,** because apps need the conversation's attributes at that moment to update their lists. The native side already has it, so it's free.
 - **Events cover all conversations automatically.** The plugin listens on every joined conversation after sync, and on new ones as they're added. That gives Android the same "every message, everywhere" behaviour iOS has natively, with no per-conversation `subscribe` call for apps to manage.
+- **`MessageAdded` can arrive out of index order when many messages are sent at once.** Seen on real devices with 50 messages sent in parallel: every message arrives exactly once, but some come up to about 25 places late, on both platforms. Twilio's SDKs report them that way, and the plugin passes them on unchanged. Normal chatting doesn't show it. Apps should place each message by `message.index`, not by arrival; `getLastMessages` and `getMessagesBefore` always return index order.
 - **No replay.** A late listener doesn't get past events, which is why the latest state is also available as getters (`connectionState`, `syncStatus`).
 
 ## 8. Push notifications via Twilio (optional)

@@ -49,6 +49,9 @@ final class ConversationAdded extends ConversationsEvent {
 }
 
 /// A message arrived in any conversation, with the conversation as it is now.
+///
+/// When many messages are sent at once, these can arrive out of index order (each still exactly
+/// once), so place messages by [Message.index], not by arrival.
 final class MessageAdded extends ConversationsEvent {
   const MessageAdded(this.message, this.conversation);
   final Message message;

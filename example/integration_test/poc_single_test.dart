@@ -97,42 +97,51 @@ void main() {
     });
   }, skip: skipped('B6'));
 
-  testWidgets('B4 manual token mode', (tester) async {
-    // A 200 s token: Twilio warns about 3 minutes before expiry, so the warning comes quickly.
-    await withClient('$run-b4', ttl: 200, (client, log) async {
-      final conversation = await client.createConversation(uniqueName: '$run-b4');
-      await client.join(conversation.sid);
-      final start = DateTime.now();
-      // Watch past the token's expiry (200 s) to see which token events this platform sends.
-      await Future<void>.delayed(const Duration(seconds: 230));
-      String describe(ConversationsEvent e) => switch (e) {
-        TokenAboutToExpire() => 'aboutToExpire',
-        TokenExpired() => 'expired',
-        ConnectionStateChanged(:final state) => 'connection:${state.name}',
-        _ => e.runtimeType.toString(),
-      };
-      final timeline = [for (final e in log.events) describe(e)];
-      final warned = log.events.any((e) => e is TokenAboutToExpire);
-      final expired = log.events.any((e) => e is TokenExpired);
-      await client.updateToken(await fetchToken('$run-b4'));
-      // Sending after the update proves the session survived the expiry.
-      final sent = await client.sendText(conversation.sid, 'still alive after updateToken');
-      final pass = warned && expired && sent.body != null;
-      report(
-        'B4',
-        pass: pass,
-        data: {
-          'aboutToExpireSeen': warned,
-          'expiredSeen': expired,
-          'sentAfterUpdate': sent.body != null,
-          'secondsWatched': DateTime.now().difference(start).inSeconds,
-          'events': timeline,
-          'connectionAfter': client.connectionState.name,
-        },
-      );
-      expect(pass, isTrue);
-    });
-  }, skip: skipped('B4'));
+  testWidgets(
+    'B4 manual token mode',
+    (tester) async {
+      // A 200 s token: Twilio warns about 3 minutes before expiry, so the warning comes quickly.
+      await withClient('$run-b4', ttl: 200, (client, log) async {
+        final conversation = await client.createConversation(uniqueName: '$run-b4');
+        await client.join(conversation.sid);
+        final start = DateTime.now();
+        // Wait well past the token's expiry (200 s): Android sends nothing within 30 s of it.
+        try {
+          await log.waitFor<TokenExpired>((_) => true, timeout: const Duration(minutes: 10));
+        } on TimeoutException {
+          // Reported below as expiredSeen: false.
+        }
+        String describe(ConversationsEvent e) => switch (e) {
+          TokenAboutToExpire() => 'aboutToExpire',
+          TokenExpired() => 'expired',
+          ConnectionStateChanged(:final state) => 'connection:${state.name}',
+          _ => e.runtimeType.toString(),
+        };
+        final timeline = [for (final e in log.events) describe(e)];
+        final warned = log.events.any((e) => e is TokenAboutToExpire);
+        final expired = log.events.any((e) => e is TokenExpired);
+        await client.updateToken(await fetchToken('$run-b4'));
+        // Sending after the update proves the session survived the expiry.
+        final sent = await client.sendText(conversation.sid, 'still alive after updateToken');
+        final pass = warned && expired && sent.body != null;
+        report(
+          'B4',
+          pass: pass,
+          data: {
+            'aboutToExpireSeen': warned,
+            'expiredSeen': expired,
+            'sentAfterUpdate': sent.body != null,
+            'secondsWatched': DateTime.now().difference(start).inSeconds,
+            'events': timeline,
+            'connectionAfter': client.connectionState.name,
+          },
+        );
+        expect(pass, isTrue);
+      });
+    },
+    skip: skipped('B4'),
+    timeout: const Timeout(Duration(minutes: 15)),
+  );
 
   testWidgets('B5 token provider fails three times, then recovers', (tester) async {
     var calls = 0;
