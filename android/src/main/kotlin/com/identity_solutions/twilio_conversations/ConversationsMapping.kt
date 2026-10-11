@@ -122,7 +122,10 @@ object PluginErrors {
 
     /** A failed Twilio call. Every Twilio failure is "twilio" for now, keeping Twilio's code in
      *  `details`; which codes mean "token" or "conversation_not_found" is pinned down in C10. */
-    fun from(error: ErrorInfo) = FlutterError("twilio", error.message, error.code)
+    fun from(error: ErrorInfo) = FlutterError("twilio", error.text(), error.code)
 
     fun from(error: TwilioException) = from(error.errorInfo)
 }
+
+/** Twilio sometimes leaves the message empty (seen on a failed media upload); fall back to its other fields. */
+fun ErrorInfo.text(): String = message.ifEmpty { description.ifEmpty { "Twilio error ($reason, status $status)" } }

@@ -39,6 +39,7 @@ final class TwilioConversationsClient {
   final _events = StreamController<ConversationsEvent>.broadcast();
   final _syncChanges = StreamController<SyncStatus>.broadcast();
   final _uploads = <String, StreamController<int>>{};
+  final _uploadTotals = <String, int>{};
   StreamSubscription<PlatformEvent>? _subscription;
 
   String _myIdentity = '';
@@ -216,6 +217,7 @@ final class TwilioConversationsClient {
     _uploads[uploadId] = progress;
     final file = File(upload.filePath);
     final totalBytes = file.existsSync() ? file.lengthSync() : 0;
+    _uploadTotals[uploadId] = totalBytes;
     final filename = upload.filename ?? file.uri.pathSegments.last;
     final message =
         _call(
@@ -224,6 +226,7 @@ final class TwilioConversationsClient {
           ),
         ).whenComplete(() {
           _uploads.remove(uploadId);
+          _uploadTotals.remove(uploadId);
           progress.close();
         });
     return MediaSend.internal(uploadId, totalBytes, progress, message);
@@ -298,7 +301,10 @@ final class TwilioConversationsClient {
         _emit(started ? TypingStarted(conversationSid, p) : TypingEnded(conversationSid, p));
       case UploadProgressEvent(:final uploadId, :final bytesSent):
         final progress = _uploads[uploadId];
-        if (progress != null && !progress.isClosed) progress.add(bytesSent);
+        // Android counts a few hundred bytes of request overhead, so progress can pass the
+        // file size; apps see it end exactly at the size.
+        final total = _uploadTotals[uploadId] ?? 0;
+        if (progress != null && !progress.isClosed) progress.add(total > 0 ? min(bytesSent, total) : bytesSent);
       case ClientErrorEvent(:final code, :final message, :final twilioCode):
         _emit(
           ClientErrorOccurred(

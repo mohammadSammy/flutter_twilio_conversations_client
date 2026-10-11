@@ -50,7 +50,10 @@ final class TwilioException extends ConversationsException {
 
 /// Twilio codes that mean a specific exception, on both platforms. Codes are added
 /// here once they've been seen on real devices (api-design §15).
-const _conversationNotFoundCodes = {50350};
+const _conversationNotFoundCodes = {
+  50350, // Conversation not found
+  50430, // User not participant of conversation: left or removed
+};
 
 /// Turns a failed native call into the matching [ConversationsException].
 ConversationsException exceptionFromPlatform(PlatformException e) {

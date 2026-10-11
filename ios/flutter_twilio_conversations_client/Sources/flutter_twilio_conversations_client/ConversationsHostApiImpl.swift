@@ -159,12 +159,18 @@ final class ConversationsHostApiImpl: NSObject, ConversationsHostApi {
     let totalBytes = size.int64Value
     let events = self.events
     let failure = UploadFailure()
+    // Twilio reports every few KB; about 100 events per upload is plenty, plus the last one.
+    let step = max(Int64(64 * 1024), totalBytes / 100)
+    let throttle = ProgressThrottle()
     // Progress may arrive off the main queue; events must reach Flutter on it.
     let listener = MediaMessageListener(
       onStarted: nil,
       onProgress: { bytes in
+        let sent = Int64(bytes)
+        guard sent - throttle.lastSent >= step || sent >= totalBytes else { return }
+        throttle.lastSent = sent
         DispatchQueue.main.async {
-          events.send(UploadProgressEvent(uploadId: uploadId, bytesSent: Int64(bytes), totalBytes: totalBytes))
+          events.send(UploadProgressEvent(uploadId: uploadId, bytesSent: sent, totalBytes: totalBytes))
         }
       },
       onCompleted: nil,
@@ -303,6 +309,11 @@ final class ConversationsHostApiImpl: NSObject, ConversationsHostApi {
 /// Remembers why a media upload failed, so the send error can say so.
 private final class UploadFailure {
   var error: TCHError?
+}
+
+/// The last progress value sent to Dart for one upload.
+private final class ProgressThrottle {
+  var lastSent: Int64 = 0
 }
 
 // MARK: - Client events

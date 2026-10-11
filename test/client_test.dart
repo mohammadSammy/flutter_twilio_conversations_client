@@ -67,6 +67,10 @@ void main() {
         PlatformException(code: 'twilio', message: 'Conversation not found', details: 50350),
         isA<ConversationNotFoundException>().having((e) => e.twilioCode, 'twilioCode', 50350),
       );
+      await expectError(
+        PlatformException(code: 'twilio', message: 'User not participant of conversation', details: 50430),
+        isA<ConversationNotFoundException>().having((e) => e.twilioCode, 'twilioCode', 50430),
+      );
       await expectError(PlatformException(code: 'media_upload', message: 'm'), isA<MediaUploadException>());
       await expectError(PlatformException(code: 'not_connected', message: 'm'), isA<NotConnectedException>());
       await expectError(PlatformException(code: 'twilio', message: 'm', details: 1), isA<TwilioException>());
@@ -196,7 +200,8 @@ void main() {
       platform.onSendMedia = (uploadId) async {
         platform.emit(UploadProgressEvent(uploadId: uploadId, bytesSent: 100, totalBytes: 300));
         platform.emit(UploadProgressEvent(uploadId: 'someone-else', bytesSent: 1, totalBytes: 1));
-        platform.emit(UploadProgressEvent(uploadId: uploadId, bytesSent: 300, totalBytes: 300));
+        // Android reports a little more than the file size; the client caps it.
+        platform.emit(UploadProgressEvent(uploadId: uploadId, bytesSent: 548, totalBytes: 300));
         await pumpEventQueue();
         return messageData();
       };

@@ -166,7 +166,13 @@ class ConversationsHostApiImpl(
         val listener = object : MediaUploadListener {
             override fun onStarted() {}
 
+            // Twilio reports every few KB; about 100 events per upload is plenty, plus the last one.
+            private val step = maxOf(64L * 1024, totalBytes / 100)
+            private var lastSent = 0L
+
             override fun onProgress(bytesSent: Long) {
+                if (bytesSent - lastSent < step && bytesSent < totalBytes) return
+                lastSent = bytesSent
                 events.send(UploadProgressEvent(uploadId, bytesSent, totalBytes))
             }
 
@@ -182,7 +188,7 @@ class ConversationsHostApiImpl(
                 builder.buildAndSend().toData()
             } catch (e: TwilioException) {
                 val error = uploadError ?: throw PluginErrors.from(e)
-                throw PluginErrors.mediaUpload(error.message, error.code)
+                throw PluginErrors.mediaUpload(error.text(), error.code)
             }
         }
     }
