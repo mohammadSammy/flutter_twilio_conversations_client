@@ -27,8 +27,7 @@ import 'package:integration_test/integration_test.dart';
 
 const token = String.fromEnvironment('TWILIO_TOKEN');
 
-Matcher failsWith(String code) =>
-    throwsA(isA<PlatformException>().having((e) => e.code, 'code', code));
+Matcher failsWith(String code) => throwsA(isA<PlatformException>().having((e) => e.code, 'code', code));
 
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -99,23 +98,13 @@ void main() {
     final second = await api.sendText(created.sid, 'second');
     expect(await api.getMessagesCount(created.sid), 2);
     expect((await api.getLastMessages(created.sid, 10)).map((m) => m.body), ['hello', 'second']);
-    expect((await api.getMessagesBefore(created.sid, second.index, 2)).map((m) => m.sid), [
-      first.sid,
-      second.sid,
-    ]);
+    expect((await api.getMessagesBefore(created.sid, second.index, 2)).map((m) => m.sid), [first.sid, second.sid]);
     expect(await api.setLastReadMessageIndex(created.sid, second.index), 0);
     await api.typing(created.sid);
 
     // Media
-    final file = File('${Directory.systemTemp.path}/plugin-test.txt')
-      ..writeAsStringSync('media body\n' * 20000);
-    final withMedia = await api.sendMedia(
-      created.sid,
-      'upload-1',
-      file.path,
-      'text/plain',
-      'plugin-test.txt',
-    );
+    final file = File('${Directory.systemTemp.path}/plugin-test.txt')..writeAsStringSync('media body\n' * 20000);
+    final withMedia = await api.sendMedia(created.sid, 'upload-1', file.path, 'text/plain', 'plugin-test.txt');
     final media = withMedia.media.single;
     expect(media.filename, 'plugin-test.txt');
     expect(media.size, file.lengthSync());

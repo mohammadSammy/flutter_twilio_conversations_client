@@ -64,7 +64,7 @@ final class TwilioConversationsClient {
   });
 
   String get myIdentity;                        // identity from the token        T1
-  ConnectionState get connectionState;          // latest known value             T1
+  ClientConnectionState get connectionState;          // latest known value             T1
   SyncStatus? get syncStatus;                   // latest known value; null until the first report  T1
   DateTime? get tokenExpiresAt;                 // §4                             T1
 
@@ -89,7 +89,7 @@ final class ClientOptions {
   // T3: commandTimeout, useProxy, deferCertificateTrustToPlatform
 }
 
-enum ConnectionState { unknown, connecting, connected, disconnected, denied, error, fatalError }
+enum ClientConnectionState { unknown, connecting, connected, disconnected, denied, error, fatalError }
 enum SyncStatus { started, conversationsListCompleted, completed, failed }
 enum LogLevel { silent, fatal, error, warning, info, debug, trace }
 ```
@@ -101,6 +101,8 @@ connect() ─▶ connecting ─▶ connected ─▶ sync: started ─▶ convers
                   ▲              │
                   └─ SDK retries ┘  disconnected / error (temporary)      denied / fatalError (needs a new token)
 ```
+
+**Why `ClientConnectionState` and not `ConnectionState`:** Flutter's widgets library already exports a `ConnectionState` (used by `FutureBuilder`). An app importing both would get an "ambiguous import" error wherever it wrote `ConnectionState`. Twilio's iOS SDK uses the same longer name.
 
 **Why a static `connect` and not a constructor:** creating the native client is async and can fail (for example, a bad token). A constructor can't be awaited or throw cleanly.
 
@@ -213,7 +215,7 @@ One broadcast stream, `client.events`, delivered on the main isolate in the orde
 ```dart
 sealed class ConversationsEvent {}
 
-final class ConnectionStateChanged extends ConversationsEvent { final ConnectionState state; }       // T1
+final class ConnectionStateChanged extends ConversationsEvent { final ClientConnectionState state; }       // T1
 final class SyncStatusChanged      extends ConversationsEvent { final SyncStatus status; }            // T1
 final class TokenAboutToExpire     extends ConversationsEvent {}                                       // T1
 final class TokenExpired           extends ConversationsEvent {}                                       // T1
@@ -319,6 +321,7 @@ final class Participant {
 
 - **Attributes are `Object?`**, because Twilio allows any JSON value there, not only objects. They cross the bridge as a JSON string, which the models keep as `attributesJson` and decode in Dart on demand, so iOS and Android can't disagree on types. Equality compares that text, so two snapshots with the same attributes are equal without a deep comparison.
 - **Dates cross the bridge as epoch milliseconds (UTC)** and become `DateTime` in Dart. That avoids timezone and date-format mismatches between the platforms.
+- **A message without text has `body == null`** on both platforms. Android reports a media-only message's body as an empty string; the plugin turns that into null, so app code doesn't need two checks.
 - **Indexes are `int`.** Dart's 64-bit int holds Twilio's indexes on both platforms.
 
 ## 10. Errors

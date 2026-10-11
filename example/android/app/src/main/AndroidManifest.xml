@@ -1,5 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- usesCleartextTraffic: the dev token server (tool/token_server.py) is plain HTTP
+         on the local network. Example app only; real apps fetch tokens over HTTPS. -->
     <application
+        android:usesCleartextTraffic="true"
         android:label="flutter_twilio_conversations_client_example"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">

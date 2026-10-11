@@ -1,7 +1,7 @@
 import 'errors.dart';
 import 'models.dart';
 
-enum ConnectionState { unknown, connecting, connected, disconnected, denied, error, fatalError }
+enum ClientConnectionState { unknown, connecting, connected, disconnected, denied, error, fatalError }
 
 enum SyncStatus { started, conversationsListCompleted, completed, failed }
 
@@ -14,7 +14,7 @@ sealed class ConversationsEvent {
 
 final class ConnectionStateChanged extends ConversationsEvent {
   const ConnectionStateChanged(this.state);
-  final ConnectionState state;
+  final ClientConnectionState state;
 }
 
 final class SyncStatusChanged extends ConversationsEvent {

@@ -109,7 +109,8 @@ final class Message {
     index: data.index,
     media: List.unmodifiable(data.media.map(Media.fromPlatform)),
     author: data.author,
-    body: data.body,
+    // Android reports a media-only message's body as "", iOS as null; apps see null on both.
+    body: (data.body?.isEmpty ?? true) ? null : data.body,
     dateCreated: _date(data.dateCreatedMillis),
     attributesJson: data.attributesJson,
     participantSid: data.participantSid,
@@ -122,6 +123,8 @@ final class Message {
 
   /// The sender's identity.
   final String? author;
+
+  /// The text; null when the message has none, for example media only.
   final String? body;
   final DateTime? dateCreated;
 

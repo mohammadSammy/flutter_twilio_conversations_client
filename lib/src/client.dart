@@ -42,7 +42,7 @@ final class TwilioConversationsClient {
   StreamSubscription<PlatformEvent>? _subscription;
 
   String _myIdentity = '';
-  ConnectionState _connectionState = ConnectionState.unknown;
+  ClientConnectionState _connectionState = ClientConnectionState.unknown;
   SyncStatus? _syncStatus;
   DateTime? _tokenExpiresAt;
   bool _closed = false;
@@ -71,7 +71,7 @@ final class TwilioConversationsClient {
     try {
       final data = await guardPlatform(() => platform.connect(token, options.region));
       client._myIdentity = data.myIdentity;
-      client._connectionState = ConnectionState.values.byName(data.connectionState.name);
+      client._connectionState = ClientConnectionState.values.byName(data.connectionState.name);
       client._syncStatus = _toSyncStatus(data.syncStatus) ?? client._syncStatus;
       return client;
     } catch (_) {
@@ -90,7 +90,7 @@ final class TwilioConversationsClient {
   String get myIdentity => _myIdentity;
 
   /// The latest known connection state.
-  ConnectionState get connectionState => _connectionState;
+  ClientConnectionState get connectionState => _connectionState;
 
   /// The latest known sync status; null until Twilio reports the first one.
   SyncStatus? get syncStatus => _syncStatus;
@@ -269,7 +269,7 @@ final class TwilioConversationsClient {
     if (_closed) return;
     switch (event) {
       case ConnectionStateEvent(:final state):
-        _connectionState = ConnectionState.values.byName(state.name);
+        _connectionState = ClientConnectionState.values.byName(state.name);
         _emit(ConnectionStateChanged(_connectionState));
       case SyncStatusEvent(:final status):
         final syncStatus = _toSyncStatus(status)!;

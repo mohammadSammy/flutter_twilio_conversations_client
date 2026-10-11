@@ -36,7 +36,7 @@ void main() {
       platform.onConnect = () => platform.emit(SyncStatusEvent(status: PlatformSyncStatus.started));
       final client = await connect();
       expect(client.myIdentity, 'alice');
-      expect(client.connectionState, ConnectionState.connecting);
+      expect(client.connectionState, ClientConnectionState.connecting);
       expect(client.syncStatus, SyncStatus.started);
     });
 
@@ -214,6 +214,12 @@ void main() {
     final client = await connect();
     await client.createConversation(uniqueName: 'u', attributes: {'vip': true});
     expect(platform.createdAttributes, ['{"vip":true}']);
+  });
+
+  test('an empty message body is null on both platforms', () {
+    final mediaOnly = messageData()..body = '';
+    expect(Message.fromPlatform(mediaOnly).body, isNull);
+    expect(Message.fromPlatform(messageData()..body = 'hi').body, 'hi');
   });
 
   test('models compare by value', () {
