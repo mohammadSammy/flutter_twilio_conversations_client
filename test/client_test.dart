@@ -210,6 +210,32 @@ void main() {
     });
   });
 
+  group('push registration', () {
+    test('waits until sync completes before reaching the platform', () async {
+      final client = await connect();
+      var registered = false;
+      final registration = client.registerPushToken(const PushToken.fcm('token')).then((_) => registered = true);
+      await pumpEventQueue();
+      expect(platform.calls, isNot(contains('registerPushToken')));
+
+      platform.emit(SyncStatusEvent(status: PlatformSyncStatus.completed));
+      await registration;
+      expect(registered, isTrue);
+      expect(platform.calls, contains('registerPushToken'));
+    });
+
+    test('fails if the client shuts down before sync completes', () async {
+      final client = await connect();
+      final registration = expectLater(
+        client.registerPushToken(const PushToken.apns('ab12')),
+        throwsA(isA<NotConnectedException>()),
+      );
+      await client.shutdown();
+      await registration;
+      expect(platform.calls, isNot(contains('registerPushToken')));
+    });
+  });
+
   test('createConversation sends attributes as JSON', () async {
     final client = await connect();
     await client.createConversation(uniqueName: 'u', attributes: {'vip': true});

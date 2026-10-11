@@ -30,6 +30,23 @@ await client.shutdown(); // on logout
 
 Access tokens come from your own backend: minting one needs the Twilio API key secret, which must never ship in an app.
 
+### Push through Twilio (optional)
+
+Only if Twilio sends your pushes. Register after connecting; the plugin waits for sync itself:
+
+```dart
+await client.registerPushToken(Platform.isIOS ? PushToken.apns(apnsHex) : PushToken.fcm(fcmToken));
+```
+
+In a push handler, even a background one where no client exists:
+
+```dart
+final push = TwilioPushPayload.tryParse(message.data);   // null if it isn't from Twilio
+if (push?.type == TwilioPushType.newMessage) showConversation(push!.conversationSid);
+```
+
+The Twilio Conversations service needs an APNs and/or FCM credential with push turned on, and the access token's chat grant must name that credential.
+
 ## Goals
 
 - Wrap the official native SDKs (iOS `TwilioConversationsClient` 4.x, Android `conversations-android` 6.x) instead of reimplementing Twilio's realtime protocol.

@@ -95,6 +95,14 @@ void main() {
         throwsA(isA<MediaUploadException>()),
       );
 
+      // F3: a push token of the other platform's kind is refused with a clear error,
+      // before anything reaches Twilio.
+      final wrongToken = Platform.isIOS ? const PushToken.fcm('fcm-token') : const PushToken.apns('ab12');
+      await expectLater(
+        client.registerPushToken(wrongToken),
+        throwsA(isA<TwilioException>().having((e) => e.message, 'message', contains('only'))),
+      );
+
       // Tokens: refresh on demand through the provider
       await client.refreshToken();
       expect(providerCalls, 1);

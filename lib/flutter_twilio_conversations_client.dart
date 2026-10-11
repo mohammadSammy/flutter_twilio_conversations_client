@@ -16,4 +16,5 @@ export 'src/events.dart';
 export 'src/media.dart' show MediaSend, MediaUpload;
 export 'src/models.dart';
 export 'src/push.dart' show ApnsPushToken, FcmPushToken, PushToken;
+export 'src/push_payload.dart';
 export 'src/token.dart' show TokenProvider;

@@ -1,6 +1,6 @@
 # API design (draft)
 
-Status: **T1 implemented** (native code in C5/C6, Dart API in C7), except push payload parsing and push registration queuing (C9). Where the code differs from the first draft, this document has been updated to match the code.
+Status: **T1 implemented** (native code in C5/C6, Dart API in C7, push in C9). Push delivery itself is still untested: it needs push credentials on the Twilio service. Where the code differs from the first draft, this document has been updated to match the code.
 
 Tier markers:
 - **T1**: in the first release.
@@ -31,7 +31,8 @@ flutter_twilio_conversations_client/
       events.dart                ← ConversationsEvent (sealed)
       errors.dart                ← ConversationsException (sealed)
       token.dart                 ← TokenProvider, reading a token's expiry (refresh logic is in client.dart)
-      push.dart                  ← PushToken (TwilioPushPayload arrives in C9)
+      push.dart                  ← PushToken
+      push_payload.dart          ← TwilioPushPayload, pure Dart
       platform/
         conversations_platform.dart   ← internal interface (what a platform must provide)
         pigeon_platform.dart          ← implementation backed by Pigeon
@@ -254,9 +255,11 @@ final class TwilioPushPayload {                         // T1, pure Dart
   static TwilioPushPayload? tryParse(Map<String, dynamic> data); // null if not a Twilio push
   final TwilioPushType type;    // newMessage, addedToConversation, removedFromConversation
   final String conversationSid;
+  final String? conversationTitle;
   final String? messageSid;
   final int? messageIndex;
   final String? author;
+  final String? title;          // the notification text Twilio built from the service's templates
   final String? body;
   final int mediaCount;
 }
@@ -267,7 +270,8 @@ Design notes:
 - **Why the parser is pure Dart:** push handlers often run in a background isolate (`FirebaseMessaging.onBackgroundMessage`), where the Twilio client doesn't exist. A pure function works there.
 - **What the plugin doesn't do:** obtain push tokens, ask for permission, or show notifications. That's `firebase_messaging` and `flutter_local_notifications`, which the app already uses.
 - **Server-side prerequisites, documented in the README:** the Twilio Conversations service needs an APNs and/or FCM credential with push turned on, and the token's chat grant must reference that credential.
-- **Register after sync completes.** Planned for C9: the plugin queues a registration made earlier and sends it once sync completes, so apps don't need to coordinate this. Until then, call `registerPushToken` after `waitUntilSynced`.
+- **Register after sync completes.** `registerPushToken` and `unregisterPushToken` wait for sync themselves, so an app can call them right after `connect`.
+- **Payload keys come from Twilio's own SDKs.** The JavaScript SDK (3.0.1, `parsePushNotification`) and the Android SDK (6.2.1, `NotificationPayload`) read `twi_message_type`, `conversation_sid`, `conversation_title`, `message_sid`, `message_index`, `author`, `media_count` and `media`. FCM puts the text in `twi_title` and `twi_body`; APNs in `aps.alert` (a string, or a dictionary with `title` and `body`). Numbers arrive as strings in FCM data. `tryParse` accepts `RemoteMessage.data`, a whole FCM message with a `data` map, or an APNs `userInfo`.
 
 ## 9. Models
 
@@ -436,7 +440,7 @@ await client.shutdown();                                   // on logout
 - [x] Each iOS mapping in §11 against the 4.0.9 SDK (C5).
 - [x] Each Android mapping in §11 against the 6.2.1 SDK (C6).
 - [x] Pigeon sealed classes over event channels: supported in Pigeon 29 for Swift, Kotlin and Dart, including empty subclasses. Used in `pigeons/conversations_api.dart`.
-- [ ] Twilio's push payload keys for `TwilioPushPayload` on both platforms (C9).
+- [x] Twilio's push payload keys for `TwilioPushPayload`: taken from Twilio's JavaScript and Android SDKs (C9). Still to confirm against a real push on each platform once the service has push credentials (C10).
 - [ ] Which Twilio error codes map to `ConversationNotFoundException` and `TokenException` on each platform (C10). Seen so far: both platforms answer a missing conversation with 50350 "Conversation not found" (C5, C6).
 - [ ] Twilio's media size limit, so `sendMedia` can fail early with a clear `MediaUploadException`.
 - [x] Whether Twilio's Android library ships its own R8 keep rules. It does (`com.twilio.**`), but its Tink dependency still breaks release builds, so the plugin ships `consumer-rules.pro` (see technical parameters).

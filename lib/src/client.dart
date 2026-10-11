@@ -243,11 +243,19 @@ final class TwilioConversationsClient {
 
   // Push through Twilio, optional (api-design §8)
 
-  Future<void> registerPushToken(PushToken token) =>
-      _call(() => _platform.registerPushToken(platformPushTokenType(token), token.token));
+  /// Asks Twilio to send pushes for this identity to [token]. Safe to call right after
+  /// [connect]: it waits until sync completes, because Twilio needs a synced client to
+  /// register. Use [PushToken.apns] on iOS and [PushToken.fcm] on Android.
+  Future<void> registerPushToken(PushToken token) async {
+    await waitUntilSynced();
+    await _call(() => _platform.registerPushToken(platformPushTokenType(token), token.token));
+  }
 
-  Future<void> unregisterPushToken(PushToken token) =>
-      _call(() => _platform.unregisterPushToken(platformPushTokenType(token), token.token));
+  /// Stops pushes to [token]. Like [registerPushToken], waits until sync completes.
+  Future<void> unregisterPushToken(PushToken token) async {
+    await waitUntilSynced();
+    await _call(() => _platform.unregisterPushToken(platformPushTokenType(token), token.token));
+  }
 
   // Internals
 
