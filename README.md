@@ -2,7 +2,7 @@
 
 An **unofficial** Flutter plugin for [Twilio Conversations](https://www.twilio.com/docs/conversations-classic), wrapping Twilio's native iOS and Android Conversations SDKs behind a typed Dart API.
 
-> **Status: 0.1.0, not on pub.dev yet.** The first-release API works on iOS and Android. It is tested on real phones against the proof-of-concept criteria; see [the results](docs/poc-results.md).
+> **Status: 0.1.1, not on pub.dev yet.** The first-release API works on iOS and Android. It is tested on real phones against the proof-of-concept criteria; see [the results](docs/poc-results.md).
 
 ## Installation
 
@@ -13,7 +13,7 @@ dependencies:
   flutter_twilio_conversations_client:
     git:
       url: https://github.com/mohammadSammy/flutter_twilio_conversations_client.git
-      ref: v0.1.0
+      ref: v0.1.1
 ```
 
 iOS needs Swift Package Manager. Twilio stopped publishing its SDK through CocoaPods, so this plugin supports Swift Package Manager only. Turn it on for your app in `pubspec.yaml`:
@@ -76,7 +76,7 @@ The Twilio Conversations service needs an APNs and/or FCM credential with push t
 - **After a network drop,** the connection state can be `error` (Android) or `fatalError` (iOS). The client still reconnects on its own when the network returns.
 - **Android can cut a background app's network,** for example during a phone call or with the screen off. An upload in progress then fails with `MediaUploadException`, and the client reconnects when the app comes back.
 - **Errors** are `ConversationsException` subclasses: `TokenException`, `ConversationNotFoundException` (missing, left or removed), `MediaUploadException`, `NotConnectedException`, `ClientAlreadyConnectedException`, or `TwilioException` with Twilio's own code.
-- **Media files** go by path and are streamed natively, so memory stays flat. Files over Twilio's 150 MB limit fail right away.
+- **Media files** go by path and are streamed natively, so memory stays flat. Files over Twilio's 150 MB limit fail right away. On iOS an upload keeps going for about 30 s after the user leaves the app.
 - **Testing your app:** `TwilioConversationsClient` and `MediaSend` are interface classes, so your tests can implement them with a fake or a mocking package.
 
 ## Example

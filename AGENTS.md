@@ -54,7 +54,7 @@ Device tests need a Twilio test account (see `example/README.md`) and a real pho
 - `native_api_test.dart`: the generated bridge, called directly.
 - `public_api_test.dart`: the public API, used as an app uses it.
 - `harness_smoke_test.dart`: the example app's screens, end to end.
-- `poc_single_test.dart`: the one-phone criteria. `--dart-define=ONLY=B4,D1` runs a subset; B3, E1, E2 and E3 (long or hands-on) run only when named.
+- `poc_single_test.dart`: the one-phone criteria. `--dart-define=ONLY=B4,D1` runs a subset; B3, D3, E1, E2 and E3 (long or hands-on) run only when named.
 - `poc_pair_test.dart`: the two-phone criteria (C1, C2, C3, C5).
   1. Run `python3 tool/twilio_rest.py pair <id>` first.
   2. Start the responder (`ROLE=responder`), then the measurer (`ROLE=measurer`), with the same `PAIR`.

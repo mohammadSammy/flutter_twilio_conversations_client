@@ -208,7 +208,7 @@ Design notes:
 - **`setLastReadMessageIndex` returns the new unread count,** because both SDKs already give it back. That saves a second call.
 - **Media goes by file path.** Bytes crossing the platform channel are copied, and a large video would freeze the app. The native side opens the file as a stream, so memory use stays flat whatever the file size.
 - **`MediaSend` is per upload, not a global event,** so an app-level upload store can own each upload and show its progress, even after the chat screen closes.
-- **iOS background time:** while any upload is running, the plugin asks iOS for background time, so a picture keeps uploading briefly after the user leaves the app. It's released when the last upload ends.
+- **iOS background time:** while any upload is running, the plugin holds one iOS background task, so an upload keeps going for about 30 s after the user leaves the app. The task ends when the last upload ends. If iOS runs out of time first, it suspends the app, and the upload either resumes or fails with `MediaUploadException` when the app comes back.
 - **Why `getMediaTemporaryUrl` needs the message index:** in both SDKs a media item is reached through its message, and messages are fetched by index. Temporary URLs expire after a few minutes, so fetch one right before use and don't store it.
 
 ## 7. Events

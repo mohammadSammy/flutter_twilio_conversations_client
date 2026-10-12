@@ -1,5 +1,6 @@
 import Foundation
 import TwilioConversationsClient
+import UIKit
 
 /// Wraps the Twilio iOS SDK. Runs on the main actor: Pigeon calls in on it, and Twilio
 /// answers on the main queue because the plugin never sets its own dispatch queue.
@@ -7,6 +8,11 @@ import TwilioConversationsClient
 final class ConversationsHostApiImpl: NSObject, ConversationsHostApi {
   private let events: ConversationsEvents
   private var client: TwilioConversationsClient?
+
+  /// Uploads in progress, and the background task that keeps them going after the user
+  /// leaves the app (api-design §6).
+  private var uploadsInProgress = 0
+  private var uploadBackgroundTask: UIBackgroundTaskIdentifier = .invalid
 
   // Flutter registers plugins on the main thread, but `register` itself isn't main-actor isolated.
   nonisolated init(events: ConversationsEvents) {
@@ -151,25 +157,30 @@ final class ConversationsHostApiImpl: NSObject, ConversationsHostApi {
     async throws -> MessageData
   {
     let conversation = try await conversation(conversationSid)
+    // The size comes from URL resource values: attributesOfItem is one of Apple's
+    // required-reason APIs, which would need a privacy-manifest declaration.
     guard let stream = InputStream(fileAtPath: filePath),
-      let size = (try? FileManager.default.attributesOfItem(atPath: filePath))?[.size] as? NSNumber
+      let size = (try? URL(fileURLWithPath: filePath).resourceValues(forKeys: [.fileSizeKey]))?.fileSize
     else {
       throw PluginErrors.mediaUpload("cannot read \(filePath)")
     }
-    let totalBytes = size.int64Value
+    let totalBytes = Int64(size)
+    uploadStarted()
+    defer { uploadEnded() }
     let events = self.events
     let failure = UploadFailure()
     // Twilio reports every few KB; about 100 events per upload is plenty, plus the last one.
     let step = max(Int64(64 * 1024), totalBytes / 100)
     let throttle = ProgressThrottle()
-    // Progress may arrive off the main queue; events must reach Flutter on it.
+    // Progress may arrive off the main queue; events must reach Flutter on it, and the
+    // throttle runs there too, so its counter is only ever touched from one thread.
     let listener = MediaMessageListener(
       onStarted: nil,
       onProgress: { bytes in
         let sent = Int64(bytes)
-        guard sent - throttle.lastSent >= step || sent >= totalBytes else { return }
-        throttle.lastSent = sent
         DispatchQueue.main.async {
+          guard sent - throttle.lastSent >= step || sent >= totalBytes else { return }
+          throttle.lastSent = sent
           events.send(UploadProgressEvent(uploadId: uploadId, bytesSent: sent, totalBytes: totalBytes))
         }
       },
@@ -184,6 +195,27 @@ final class ConversationsHostApiImpl: NSObject, ConversationsHostApi {
       guard let uploadError = failure.error else { throw error }
       throw PluginErrors.mediaUpload(uploadError.localizedDescription, twilioCode: uploadError.code)
     }
+  }
+
+  /// iOS gives a backgrounded app about 30 s; when that runs out it suspends the app, and the
+  /// upload fails or resumes when the app comes back. One task covers all uploads.
+  private func uploadStarted() {
+    uploadsInProgress += 1
+    guard uploadBackgroundTask == .invalid else { return }
+    uploadBackgroundTask = UIApplication.shared.beginBackgroundTask(withName: "Twilio media upload") { [weak self] in
+      MainActor.assumeIsolated { self?.endUploadBackgroundTask() }
+    }
+  }
+
+  private func uploadEnded() {
+    uploadsInProgress -= 1
+    if uploadsInProgress == 0 { endUploadBackgroundTask() }
+  }
+
+  private func endUploadBackgroundTask() {
+    guard uploadBackgroundTask != .invalid else { return }
+    UIApplication.shared.endBackgroundTask(uploadBackgroundTask)
+    uploadBackgroundTask = .invalid
   }
 
   func typing(conversationSid: String) async throws {

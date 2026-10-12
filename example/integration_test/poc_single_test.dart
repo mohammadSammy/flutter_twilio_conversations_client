@@ -606,4 +606,96 @@ void main() {
     skip: notNamed('E3'),
     timeout: const Timeout(Duration(minutes: 10)),
   );
+
+  testWidgets(
+    'D3 upload outlives its screen and the app going to the background',
+    (tester) async {
+      await withClient('$run-d3', (client, log) async {
+        final conversation = await client.createConversation(uniqueName: '$run-d3');
+        await client.join(conversation.sid);
+
+        // The widget that started an upload is gone before the upload ends.
+        final photo = TestFile.all.first;
+        final photoFile = await photo.create();
+        MediaSend? started;
+        await tester.pumpWidget(
+          Builder(
+            builder: (_) {
+              started ??= client.sendMedia(
+                conversation.sid,
+                MediaUpload(filePath: photoFile.path, contentType: photo.contentType, filename: photo.filename),
+              );
+              return const SizedBox();
+            },
+          ),
+        );
+        await tester.pumpWidget(const SizedBox());
+        final afterScreenClosed = await started!.message.then<String>(
+          (_) => 'sent',
+          onError: (Object e) => '${e.runtimeType}',
+        );
+
+        // The app goes to the background during a 50 MB upload.
+        final video = TestFile.all[1];
+        final videoFile = await video.create();
+        final lifecycle = LifecycleLog();
+        final progress = <(DateTime, int)>[];
+        final send = client.sendMedia(
+          conversation.sid,
+          MediaUpload(filePath: videoFile.path, contentType: video.contentType, filename: video.filename),
+        );
+        send.bytesSent.listen((bytes) => progress.add((DateTime.now(), bytes)));
+        String? outcome;
+        DateTime? outcomeAt;
+        unawaited(
+          send.message
+              .then<void>((_) => outcome = 'sent', onError: (Object e) => outcome = '${e.runtimeType}')
+              .whenComplete(() => outcomeAt = DateTime.now()),
+        );
+        await instruct(tester, 'D3', 'A 50 MB upload is running. Press Home now, wait 1 minute, then reopen this app.');
+        final pausedAt = await lifecycle.waitFor(AppLifecycleState.paused, const Duration(minutes: 3));
+        final resumedAt = await lifecycle.waitFor(
+          AppLifecycleState.resumed,
+          const Duration(minutes: 10),
+          after: pausedAt,
+        );
+        await instruct(tester, 'D3', 'Welcome back. Waiting for the upload to finish or fail; nothing to do.');
+        // "Never hangs": the upload ends one way or the other well within this.
+        final deadline = DateTime.now().add(const Duration(minutes: 10));
+        while (outcome == null && DateTime.now().isBefore(deadline)) {
+          await Future<void>.delayed(const Duration(milliseconds: 500));
+        }
+        lifecycle.dispose();
+        int bytesAt(DateTime time) =>
+            progress.where((p) => !p.$1.isAfter(time)).fold(0, (most, p) => p.$2 > most ? p.$2 : most);
+        final atBackground = bytesAt(pausedAt);
+        final beforeResume = bytesAt(resumedAt);
+        final lastInBackground = progress
+            .where((p) => p.$1.isAfter(pausedAt) && p.$1.isBefore(resumedAt))
+            .map((p) => p.$1)
+            .lastOrNull;
+        // iOS must keep uploading for a while in the background; Android may cut a background app's network.
+        final pass =
+            afterScreenClosed == 'sent' &&
+            (outcome == 'sent' || outcome == 'MediaUploadException') &&
+            (!Platform.isIOS || beforeResume > atBackground);
+        report(
+          'D3',
+          pass: pass,
+          data: {
+            'afterScreenClosed': afterScreenClosed,
+            'outcome': outcome ?? 'still running 10 minutes after resuming',
+            'secondsInBackground': resumedAt.difference(pausedAt).inSeconds,
+            'bytesAtBackground': atBackground,
+            'bytesBeforeResume': beforeResume,
+            'uploadedInBackgroundForSeconds': lastInBackground?.difference(pausedAt).inSeconds,
+            'outcomeSecondsAfterResume': outcomeAt?.difference(resumedAt).inSeconds,
+          },
+        );
+        expect(pass, isTrue);
+      });
+    },
+    skip: notNamed('D3'),
+    timeout: const Timeout(Duration(minutes: 30)),
+  );
 }

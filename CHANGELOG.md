@@ -1,4 +1,11 @@
-## 0.1.0 (unreleased)
+## 0.1.1 (2026-10-12)
+
+* iOS: an upload now keeps going for about 30 s after the user leaves the app. Before, it stopped at once. After that time it fails with `MediaUploadException` when the app comes back, instead of hanging.
+* iOS: the plugin now ships its privacy manifest. It no longer uses `FileManager.attributesOfItem`, one of Apple's required-reason APIs, so apps don't need to declare a reason for it.
+* iOS: the Twilio SDK is pinned to exactly 4.0.9, like the Android SDK, so a new Twilio release only reaches apps through a plugin release.
+* iOS: upload progress is throttled on the main queue, so its counter is only ever touched from one thread.
+
+## 0.1.0 (2026-10-12)
 
 First release. It works on iOS and Android, and is tested on real phones against the Must criteria in [docs/poc-results.md](docs/poc-results.md).
 

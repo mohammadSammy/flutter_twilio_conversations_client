@@ -13,7 +13,7 @@ let package = Package(
     ],
     dependencies: [
         .package(name: "FlutterFramework", path: "../FlutterFramework"),
-        .package(url: "https://github.com/twilio/conversations-ios", .upToNextMajor(from: "4.0.9"))
+        .package(url: "https://github.com/twilio/conversations-ios", exact: "4.0.9")
     ],
     targets: [
         .target(
@@ -23,15 +23,8 @@ let package = Package(
                 .product(name: "TwilioConversationsClient", package: "conversations-ios")
             ],
             resources: [
-                // If your plugin requires a privacy manifest, for example if it uses any required
-                // reason APIs, update the PrivacyInfo.xcprivacy file to describe your plugin's
-                // privacy impact, and then uncomment these lines. For more information, see
-                // https://developer.apple.com/documentation/bundleresources/privacy_manifest_files
-                // .process("PrivacyInfo.xcprivacy"),
-
-                // If you have other resources that need to be bundled with your plugin, refer to
-                // the following instructions to add them:
-                // https://developer.apple.com/documentation/xcode/bundling-resources-with-a-swift-package
+                // Declares no data collection or tracking; the plugin uses no required-reason APIs.
+                .process("PrivacyInfo.xcprivacy")
             ]
         )
     ]

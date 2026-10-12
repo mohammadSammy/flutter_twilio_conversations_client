@@ -26,7 +26,7 @@ The versions and minimums this plugin builds against, and why. Checked against l
 
 | | Value | Why |
 |---|---|---|
-| Twilio SDK | `twilio/conversations-ios` **4.0.9+**, `upToNextMajor` | Latest release (Aug 2026). Also resolves `twilio/twilsock-ios` 3.0.2 |
+| Twilio SDK | `twilio/conversations-ios` **4.0.9**, pinned exactly | Latest release (Aug 2026). Pinned like the Android SDK, so a new Twilio release reaches apps only through a plugin release. Also resolves `twilio/twilsock-ios` 3.0.2 |
 | Dependency manager | **Swift Package Manager only** | See below |
 | Minimum iOS | **15.0** | Flutter itself requires iOS 15.0 (the engine's minimum since at least 3.47), so the plugin can't go lower. Twilio supports 13.0 |
 | Language | Swift | |

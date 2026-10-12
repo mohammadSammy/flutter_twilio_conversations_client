@@ -43,6 +43,7 @@ The Must criteria from [poc-success-criteria.md](poc-success-criteria.md), measu
 | E1 | Network drop | Pass | Pass | About 90 s in airplane mode. All three messages sent meanwhile arrived exactly once. The drop is reported as `fatalError` on iOS and `error` on Android, and both recover on their own |
 | E2 | Background and back | Pass | Pass | 10.3 minutes in the background. iOS reconnected 0.6 s after reopening, and the messages showed after 1.0 s. On Android the connection never dropped, and the messages showed after 0.17 s |
 | E3 | Killed and relaunched | Pass | Pass | After a forced kill, connect and sync took 2.3 s on iOS and 3.6 s on Android, both including the token fetch. The conversation and the last message were there |
+| D3 | Upload outlives the screen (Should) | **Pass** (v0.1.1) | Not run | iOS: after Home was pressed during a 50 MB upload, it kept uploading for 30 s (5.8 to 15.7 MB). Then iOS suspended the app, and on return 74 s later the upload ended with `MediaUploadException` at once, with no hang. An upload whose widget was removed before it finished was sent normally. Before 0.1.1 the plugin held no iOS background task |
 | G1 | API matches the design | Pass | Pass | Needed a fix; see below |
 | G2 | Logic tested without devices | Pass | Pass | 25 Dart unit tests with a fake platform cover token refresh, error mapping, events and uploads |
 | G3 | Clean CI | Pending | Pending | `flutter analyze`, the format check and the unit tests are clean locally. The CI workflow hasn't run yet |
@@ -98,7 +99,7 @@ These codes are the same on both platforms:
 
 Should criteria:
 - **B5, C5 and C8:** tested and passing on both platforms.
-- **D3** (upload outlives the screen).
+- **D3** (upload outlives the screen): passes on iOS since 0.1.1. Android not run, because Android can cut a background app's network anyway.
 - **E4** (soak test).
 - **F1–F3** (push):
   - F1 needs push credentials on the Twilio service, and a paid Apple team for APNs.
