@@ -1,6 +1,13 @@
-# Example app: the proof-of-concept harness
+# Example app
 
-The example app runs every scenario in [docs/poc-success-criteria.md](../docs/poc-success-criteria.md) against a real Twilio account. It's a test tool, not a sample chat UI.
+Two entry points:
+
+- **`lib/main.dart`**: a minimal chat screen, showing how an app uses the plugin:
+  ```bash
+  flutter run --dart-define=TWILIO_TOKEN=<access token> --dart-define=CONVERSATION=<conversation SID or unique name>
+  ```
+  `python3 ../tool/test_token.py <identity>` prints a test token. A real app gets one from its own backend.
+- **`lib/harness_app.dart`**: the proof-of-concept harness. It runs every scenario in [docs/poc-success-criteria.md](../docs/poc-success-criteria.md) against a real Twilio account. It's a test tool, not a sample chat UI. The rest of this README is about the harness.
 
 ## Setup
 
@@ -13,7 +20,7 @@ The example app runs every scenario in [docs/poc-success-criteria.md](../docs/po
 3. Point the app at it:
    - **Android over USB:** `adb reverse tcp:8787 tcp:8787`, then the default `http://localhost:8787` works.
    - **iOS, or Android over Wi-Fi:** use the printed address, either typed on the connect screen or at build time with `--dart-define=TOKEN_SERVER=http://<address>:8787`. iOS asks for local network access the first time; allow it.
-4. Run the app: `flutter run` from this folder.
+4. Run the harness: `flutter run -t lib/harness_app.dart` from this folder. (`lib/main.dart` is the short usage example instead.)
 
 ## Where each criterion is run
 

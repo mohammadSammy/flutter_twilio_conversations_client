@@ -18,9 +18,11 @@ final class MediaUpload {
 
 /// One upload in progress. An app can keep it after the chat screen closes and still
 /// show its progress.
-final class MediaSend {
-  /// Created by `TwilioConversationsClient.sendMedia`.
-  MediaSend.internal(this.uploadId, this.totalBytes, this._progress, this.message);
+///
+/// Only `TwilioConversationsClient.sendMedia` creates one. It's an `interface class` so app tests
+/// can implement it in a fake client.
+interface class MediaSend {
+  MediaSend._(this.uploadId, this.totalBytes, this._progress, this.message);
 
   final String uploadId;
 
@@ -36,3 +38,7 @@ final class MediaSend {
   /// Completes with the sent message, or fails with a `MediaUploadException`.
   final Future<Message> message;
 }
+
+/// Internal: the package export hides this, so apps can't build a [MediaSend] themselves.
+MediaSend newMediaSend(String uploadId, int totalBytes, StreamController<int> progress, Future<Message> message) =>
+    MediaSend._(uploadId, totalBytes, progress, message);

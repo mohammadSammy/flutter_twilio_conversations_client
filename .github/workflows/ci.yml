@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    name: Analyze and test (Flutter ${{ matrix.flutter }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The minimum the package supports, and the newest stable release.
+        flutter: ['3.44.x', 'stable']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ matrix.flutter == 'stable' && '' || matrix.flutter }}
+          cache: true
+
+      - name: Get packages
+        run: |
+          flutter pub get
+          (cd example && flutter pub get)
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Check formatting
+        run: dart format --output=none --set-exit-if-changed lib/src/*.dart lib/src/platform test example/lib example/integration_test lib/flutter_twilio_conversations_client.dart
+
+      - name: Unit tests
+        run: flutter test
+
+      - name: Generated bridge is up to date
+        run: |
+          dart run pigeon --input pigeons/conversations_api.dart
+          git diff --exit-code -- lib/src/generated android/src ios/flutter_twilio_conversations_client/Sources
+
+  build:
+    # Proof-of-concept criterion A1: the example app builds on both platforms and both Flutter versions.
+    name: Build example ${{ matrix.target }} (Flutter ${{ matrix.flutter }})
+    runs-on: ${{ matrix.target == 'ios' && 'macos-latest' || 'ubuntu-latest' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        flutter: ['3.44.x', 'stable']
+        target: [apk, ios]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        if: matrix.target == 'apk'
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ matrix.flutter == 'stable' && '' || matrix.flutter }}
+          cache: true
+
+      - name: Build
+        working-directory: example
+        run: flutter build ${{ matrix.target }} --debug ${{ matrix.target == 'ios' && '--no-codesign' || '' }}

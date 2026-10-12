@@ -10,6 +10,10 @@ Usage:
     python3 tool/twilio_rest.py pair <pair-id>
         Creates <pair-id>-main and <pair-id>-other with <pair-id>-responder and
         <pair-id>-measurer as participants, for integration_test/poc_pair_test.dart.
+    python3 tool/twilio_rest.py conversations <identity> <count>
+        Creates <count> conversations with <identity> in each (criterion B1).
+    python3 tool/twilio_rest.py send <conversation-sid> <body-prefix>
+        Sends three messages, <body-prefix>-1 to -3, from "poc-sender" (criteria E1, E2).
 """
 
 import base64
@@ -49,10 +53,27 @@ def pair(pair_id):
         print(name, conversation["sid"])
 
 
+def conversations(identity, count):
+    for i in range(count):
+        conversation = call("POST", "/Conversations", {"FriendlyName": f"poc-{identity}-{i}"})
+        call("POST", f"/Conversations/{conversation['sid']}/Participants", {"Identity": identity})
+    print(f"{identity}: {count} conversations")
+
+
+def send(conversation_sid, prefix):
+    for i in range(1, 4):
+        call("POST", f"/Conversations/{conversation_sid}/Messages", {"Author": "poc-sender", "Body": f"{prefix}-{i}"})
+    print(f"sent {prefix}-1..3 to {conversation_sid}")
+
+
 if __name__ == "__main__":
     if len(sys.argv) == 3 and sys.argv[1] == "removed-conversation":
         removed_conversation(sys.argv[2])
     elif len(sys.argv) == 3 and sys.argv[1] == "pair":
         pair(sys.argv[2])
+    elif len(sys.argv) == 4 and sys.argv[1] == "conversations":
+        conversations(sys.argv[2], int(sys.argv[3]))
+    elif len(sys.argv) == 4 and sys.argv[1] == "send":
+        send(sys.argv[2], sys.argv[3])
     else:
         sys.exit(__doc__)

@@ -25,19 +25,6 @@ final class Conversation {
     this.createdBy,
   });
 
-  factory Conversation.fromPlatform(ConversationData data) => Conversation(
-    sid: data.sid,
-    status: ConversationStatus.values.byName(data.status.name),
-    uniqueName: data.uniqueName,
-    friendlyName: data.friendlyName,
-    attributesJson: data.attributesJson,
-    lastMessageIndex: data.lastMessageIndex,
-    lastMessageDate: _date(data.lastMessageDateMillis),
-    lastReadMessageIndex: data.lastReadMessageIndex,
-    dateCreated: _date(data.dateCreatedMillis),
-    createdBy: data.createdBy,
-  );
-
   final String sid;
   final ConversationStatus status;
   final String? uniqueName;
@@ -103,19 +90,6 @@ final class Message {
     this.participantSid,
   });
 
-  factory Message.fromPlatform(MessageData data) => Message(
-    conversationSid: data.conversationSid,
-    sid: data.sid,
-    index: data.index,
-    media: List.unmodifiable(data.media.map(Media.fromPlatform)),
-    author: data.author,
-    // Android reports a media-only message's body as "", iOS as null; apps see null on both.
-    body: (data.body?.isEmpty ?? true) ? null : data.body,
-    dateCreated: _date(data.dateCreatedMillis),
-    attributesJson: data.attributesJson,
-    participantSid: data.participantSid,
-  );
-
   final String conversationSid;
   final String sid;
   final int index;
@@ -174,14 +148,6 @@ final class Media {
     this.filename,
   });
 
-  factory Media.fromPlatform(MediaData data) => Media(
-    sid: data.sid,
-    category: MediaCategory.values.byName(data.category.name),
-    contentType: data.contentType,
-    size: data.size,
-    filename: data.filename,
-  );
-
   final String sid;
   final MediaCategory category;
   final String contentType;
@@ -215,14 +181,6 @@ final class Participant {
     this.attributesJson,
   });
 
-  factory Participant.fromPlatform(ParticipantData data) => Participant(
-    sid: data.sid,
-    identity: data.identity,
-    dateCreated: _date(data.dateCreatedMillis),
-    lastReadMessageIndex: data.lastReadMessageIndex,
-    attributesJson: data.attributesJson,
-  );
-
   final String sid;
   final String? identity;
 
@@ -255,3 +213,47 @@ final class Participant {
 DateTime? _date(int? millis) => millis == null ? null : DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true);
 
 Object? _decode(String? json) => json == null ? null : jsonDecode(json);
+
+// Pigeon data to public models. Internal: the package export hides these, so apps never see generated types.
+
+Conversation conversationFromPlatform(ConversationData data) => Conversation(
+  sid: data.sid,
+  status: ConversationStatus.values.byName(data.status.name),
+  uniqueName: data.uniqueName,
+  friendlyName: data.friendlyName,
+  attributesJson: data.attributesJson,
+  lastMessageIndex: data.lastMessageIndex,
+  lastMessageDate: _date(data.lastMessageDateMillis),
+  lastReadMessageIndex: data.lastReadMessageIndex,
+  dateCreated: _date(data.dateCreatedMillis),
+  createdBy: data.createdBy,
+);
+
+Message messageFromPlatform(MessageData data) => Message(
+  conversationSid: data.conversationSid,
+  sid: data.sid,
+  index: data.index,
+  media: List.unmodifiable(data.media.map(mediaFromPlatform)),
+  author: data.author,
+  // Android reports a media-only message's body as "", iOS as null; apps see null on both.
+  body: (data.body?.isEmpty ?? true) ? null : data.body,
+  dateCreated: _date(data.dateCreatedMillis),
+  attributesJson: data.attributesJson,
+  participantSid: data.participantSid,
+);
+
+Media mediaFromPlatform(MediaData data) => Media(
+  sid: data.sid,
+  category: MediaCategory.values.byName(data.category.name),
+  contentType: data.contentType,
+  size: data.size,
+  filename: data.filename,
+);
+
+Participant participantFromPlatform(ParticipantData data) => Participant(
+  sid: data.sid,
+  identity: data.identity,
+  dateCreated: _date(data.dateCreatedMillis),
+  lastReadMessageIndex: data.lastReadMessageIndex,
+  attributesJson: data.attributesJson,
+);

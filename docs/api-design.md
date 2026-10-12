@@ -51,10 +51,12 @@ flutter_twilio_conversations_client/
 
 **Why an internal `ConversationsPlatform` interface:** Dart unit tests use a fake platform, so the token refresh, error mapping and event logic can be tested without a device.
 
+**Why `TwilioConversationsClient` and `MediaSend` are `interface class`es:** apps can implement them in their own tests, by hand or with a mocking package, but can't subclass them. Only `connect` and `sendMedia` create real ones.
+
 ## 3. The client: lifecycle
 
 ```dart
-final class TwilioConversationsClient {
+interface class TwilioConversationsClient {
   /// Creates the native client and starts connecting. Completes once the client
   /// exists, before sync has finished; use [waitUntilSynced] for that.
   /// Only one client may be connected at a time.                               T1
@@ -193,7 +195,7 @@ final class MediaUpload {
   final String? filename;     // defaults to the file's name
 }
 
-final class MediaSend {
+interface class MediaSend {
   String get uploadId;
   Stream<int> get bytesSent;  // progress; closes when the upload ends
   int get totalBytes;
@@ -442,6 +444,6 @@ await client.shutdown();                                   // on logout
 - [x] Each Android mapping in §11 against the 6.2.1 SDK (C6).
 - [x] Pigeon sealed classes over event channels: supported in Pigeon 29 for Swift, Kotlin and Dart, including empty subclasses. Used in `pigeons/conversations_api.dart`.
 - [x] Twilio's push payload keys for `TwilioPushPayload`: taken from Twilio's JavaScript and Android SDKs (C9). Still to confirm against a real push on each platform once the service has push credentials (C10).
-- [ ] Which Twilio error codes map to `ConversationNotFoundException` and `TokenException` on each platform (C10). Seen so far: both platforms answer a missing conversation with 50350 "Conversation not found" (C5, C6).
-- [ ] Twilio's media size limit, so `sendMedia` can fail early with a clear `MediaUploadException`.
+- [x] Which Twilio error codes map to `ConversationNotFoundException` and `TokenException` on each platform (C10). The same on both platforms: 50350 "Conversation not found" and 50430 "User not participant of conversation" (left or removed) are `ConversationNotFoundException`; a malformed or expired token on connect is code 5 "UNAUTHORIZED", which is `TokenException`.
+- [x] Twilio's media size limit, so `sendMedia` can fail early with a clear `MediaUploadException`. Twilio's Conversations limits page gives 150 MB between chat participants; `sendMedia` refuses a larger file before uploading (`TwilioConversationsClient.maxMediaBytes`). Not tried on a device: a 150 MB upload takes about 15 minutes on the test Wi-Fi.
 - [x] Whether Twilio's Android library ships its own R8 keep rules. It does (`com.twilio.**`), but its Tink dependency still breaks release builds, so the plugin ships `consumer-rules.pro` (see technical parameters).

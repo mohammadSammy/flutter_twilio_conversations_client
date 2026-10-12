@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_twilio_conversations_client/flutter_twilio_conversations_client.dart';
 import 'package:flutter_twilio_conversations_client/src/generated/conversations_api.g.dart';
+import 'package:flutter_twilio_conversations_client/src/models.dart' show conversationFromPlatform, messageFromPlatform;
 import 'package:flutter_twilio_conversations_client/src/platform/conversations_platform.dart';
 
 void main() {
@@ -217,6 +218,17 @@ void main() {
       expect(await progress, [100, 300]);
       expect(platform.sentFilenames, ['photo.jpg']);
     });
+
+    test('fails before uploading a file over Twilio\'s limit', () async {
+      final file = File('${Directory.systemTemp.createTempSync().path}/big.mp4');
+      file.openSync(mode: FileMode.write)
+        ..truncateSync(TwilioConversationsClient.maxMediaBytes + 1) // sparse, so the test stays fast
+        ..closeSync();
+      final client = await connect();
+      final send = client.sendMedia('CH1', MediaUpload(filePath: file.path, contentType: 'video/mp4'));
+      await expectLater(send.message, throwsA(isA<MediaUploadException>()));
+      expect(platform.calls, isNot(contains('sendMedia')));
+    });
   });
 
   group('push registration', () {
@@ -253,17 +265,33 @@ void main() {
 
   test('an empty message body is null on both platforms', () {
     final mediaOnly = messageData()..body = '';
-    expect(Message.fromPlatform(mediaOnly).body, isNull);
-    expect(Message.fromPlatform(messageData()..body = 'hi').body, 'hi');
+    expect(messageFromPlatform(mediaOnly).body, isNull);
+    expect(messageFromPlatform(messageData()..body = 'hi').body, 'hi');
   });
 
   test('models compare by value', () {
-    expect(Message.fromPlatform(messageData()), Message.fromPlatform(messageData()));
+    expect(messageFromPlatform(messageData()), messageFromPlatform(messageData()));
     expect(
-      Conversation.fromPlatform(conversationData()).hashCode,
-      Conversation.fromPlatform(conversationData()).hashCode,
+      conversationFromPlatform(conversationData()).hashCode,
+      conversationFromPlatform(conversationData()).hashCode,
     );
   });
+
+  test('apps can fake the client and an upload in their own tests', () {
+    expect(_AppFakeClient(), isA<TwilioConversationsClient>());
+    expect(_AppFakeUpload(), isA<MediaSend>());
+  });
+}
+
+/// What an app's test double looks like; this stops compiling if the classes become final.
+class _AppFakeClient implements TwilioConversationsClient {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _AppFakeUpload implements MediaSend {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 String jwt({required int exp}) {

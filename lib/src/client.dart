@@ -27,7 +27,10 @@ final class ClientOptions {
 ///
 /// Create one with [connect]. Only one client can be connected at a time; call
 /// [shutdown] before connecting again, for example after a logout.
-final class TwilioConversationsClient {
+///
+/// An `interface class`, so app tests can implement it with a fake or a mock; only [connect]
+/// creates a real one.
+interface class TwilioConversationsClient {
   TwilioConversationsClient._(this._platform, this._tokenProvider, String token) : _tokenExpiresAt = tokenExpiry(token);
 
   /// The client that is connecting or connected. The native side has one event sink,
@@ -162,26 +165,26 @@ final class TwilioConversationsClient {
   // Conversations (api-design §5)
 
   Future<List<Conversation>> myConversations() =>
-      _call(() async => (await _platform.myConversations()).map(Conversation.fromPlatform).toList());
+      _call(() async => (await _platform.myConversations()).map(conversationFromPlatform).toList());
 
   /// Throws [ConversationNotFoundException] if the conversation doesn't exist or this
   /// identity left it or was removed from it.
   Future<Conversation> getConversation(String sidOrUniqueName) =>
-      _call(() async => Conversation.fromPlatform(await _platform.getConversation(sidOrUniqueName)));
+      _call(() async => conversationFromPlatform(await _platform.getConversation(sidOrUniqueName)));
 
   /// [attributes] is any JSON value: a Map, List, String, num, bool or null.
   Future<Conversation> createConversation({String? uniqueName, String? friendlyName, Object? attributes}) => _call(
-    () async => Conversation.fromPlatform(
+    () async => conversationFromPlatform(
       await _platform.createConversation(uniqueName, friendlyName, attributes == null ? null : jsonEncode(attributes)),
     ),
   );
 
   Future<Conversation> join(String conversationSid) =>
-      _call(() async => Conversation.fromPlatform(await _platform.join(conversationSid)));
+      _call(() async => conversationFromPlatform(await _platform.join(conversationSid)));
 
   Future<Participant?> getParticipantByIdentity(String conversationSid, String identity) => _call(() async {
     final data = await _platform.getParticipantByIdentity(conversationSid, identity);
-    return data == null ? null : Participant.fromPlatform(data);
+    return data == null ? null : participantFromPlatform(data);
   });
 
   // Messages, read state, typing, media (api-design §6)
@@ -190,12 +193,12 @@ final class TwilioConversationsClient {
 
   /// Up to [count] messages up to and including [index], oldest first.
   Future<List<Message>> getMessagesBefore(String conversationSid, {required int index, required int count}) => _call(
-    () async => (await _platform.getMessagesBefore(conversationSid, index, count)).map(Message.fromPlatform).toList(),
+    () async => (await _platform.getMessagesBefore(conversationSid, index, count)).map(messageFromPlatform).toList(),
   );
 
   /// The newest [count] messages, oldest first.
   Future<List<Message>> getLastMessages(String conversationSid, {required int count}) =>
-      _call(() async => (await _platform.getLastMessages(conversationSid, count)).map(Message.fromPlatform).toList());
+      _call(() async => (await _platform.getLastMessages(conversationSid, count)).map(messageFromPlatform).toList());
 
   /// Null until this identity has read something in the conversation; apps usually
   /// treat that as "everything is unread", not as 0.
@@ -207,9 +210,13 @@ final class TwilioConversationsClient {
       _call(() => _platform.setLastReadMessageIndex(conversationSid, index));
 
   Future<Message> sendText(String conversationSid, String body) =>
-      _call(() async => Message.fromPlatform(await _platform.sendText(conversationSid, body)));
+      _call(() async => messageFromPlatform(await _platform.sendText(conversationSid, body)));
+
+  /// Twilio's limit for media between chat participants: 150 MB (Conversations limits page).
+  static const maxMediaBytes = 150 * 1024 * 1024;
 
   /// Starts sending a file. Progress and the result arrive on the returned [MediaSend].
+  /// A file over [maxMediaBytes] fails at once with [MediaUploadException], before any upload.
   MediaSend sendMedia(String conversationSid, MediaUpload upload) {
     _checkOpen();
     final uploadId = 'upload-${++_uploadCount}-${DateTime.now().microsecondsSinceEpoch}';
@@ -220,16 +227,19 @@ final class TwilioConversationsClient {
     _uploadTotals[uploadId] = totalBytes;
     final filename = upload.filename ?? file.uri.pathSegments.last;
     final message =
-        _call(
-          () async => Message.fromPlatform(
+        _call(() async {
+          if (totalBytes > maxMediaBytes) {
+            throw MediaUploadException('file is $totalBytes bytes; Twilio accepts up to $maxMediaBytes');
+          }
+          return messageFromPlatform(
             await _platform.sendMedia(conversationSid, uploadId, upload.filePath, upload.contentType, filename),
-          ),
-        ).whenComplete(() {
+          );
+        }).whenComplete(() {
           _uploads.remove(uploadId);
           _uploadTotals.remove(uploadId);
           progress.close();
         });
-    return MediaSend.internal(uploadId, totalBytes, progress, message);
+    return newMediaSend(uploadId, totalBytes, progress, message);
   }
 
   /// Tells the other participants this identity is typing. Call it as the user types;
@@ -291,13 +301,13 @@ final class TwilioConversationsClient {
         _emit(type == PlatformTokenEventType.aboutToExpire ? const TokenAboutToExpire() : const TokenExpired());
         if (_tokenProvider != null) unawaited(_autoRefresh(++_refreshGeneration));
       case ConversationAddedEvent(:final conversation):
-        _emit(ConversationAdded(Conversation.fromPlatform(conversation)));
+        _emit(ConversationAdded(conversationFromPlatform(conversation)));
       case MessageAddedEvent(:final message, :final conversation):
-        _emit(MessageAdded(Message.fromPlatform(message), Conversation.fromPlatform(conversation)));
+        _emit(MessageAdded(messageFromPlatform(message), conversationFromPlatform(conversation)));
       case MessageUpdatedEvent(:final message):
-        _emit(MessageUpdated(Message.fromPlatform(message)));
+        _emit(MessageUpdated(messageFromPlatform(message)));
       case TypingEvent(:final conversationSid, :final participant, :final started):
-        final p = Participant.fromPlatform(participant);
+        final p = participantFromPlatform(participant);
         _emit(started ? TypingStarted(conversationSid, p) : TypingEnded(conversationSid, p));
       case UploadProgressEvent(:final uploadId, :final bytesSent):
         final progress = _uploads[uploadId];

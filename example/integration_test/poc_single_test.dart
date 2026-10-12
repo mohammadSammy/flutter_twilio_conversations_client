@@ -10,6 +10,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_twilio_conversations_client/flutter_twilio_conversations_client.dart';
 import 'package:flutter_twilio_conversations_client_example/src/test_files.dart';
@@ -18,8 +19,15 @@ import 'poc/poc.dart';
 
 const only = String.fromEnvironment('ONLY');
 
+/// Written by E3 before the Mac kills the app; on the relaunch only E3's second half runs.
+final e3Marker = File('${Directory.systemTemp.path}/poc-e3-identity');
+final e3Relaunched = e3Marker.existsSync();
+
 /// True when ONLY names other tests.
-bool skipped(String id) => only.isNotEmpty && !only.split(',').contains(id);
+bool skipped(String id) => e3Relaunched ? id != 'E3' : only.isNotEmpty && !only.split(',').contains(id);
+
+/// Long or hands-on tests run only when ONLY names them.
+bool notNamed(String id) => e3Relaunched ? id != 'E3' : !only.split(',').contains(id);
 
 void main() {
   setUpPoc();
@@ -366,4 +374,236 @@ void main() {
       expect(pass, isTrue);
     });
   }, skip: skipped('C7'));
+
+  testWidgets('B1 sync time, 5 connects', (tester) async {
+    const identity = String.fromEnvironment('B1_IDENTITY');
+    if (identity.isEmpty) {
+      report('B1', pass: false, data: {'skipped': 'run tool/twilio_rest.py conversations <identity> 20 first'});
+      return;
+    }
+    final syncMs = <int>[];
+    var conversations = 0;
+    for (var i = 0; i < 5; i++) {
+      final token = await fetchToken(identity);
+      final stopwatch = Stopwatch()..start();
+      final client = await TwilioConversationsClient.connect(token: token);
+      await client.waitUntilSynced();
+      syncMs.add(stopwatch.elapsedMilliseconds);
+      conversations = (await client.myConversations()).length;
+      await client.shutdown();
+    }
+    final pass = median(syncMs) < 5000 && conversations >= 20;
+    report(
+      'B1',
+      pass: pass,
+      data: {
+        'medianMs': median(syncMs).round(),
+        'rawMs': syncMs,
+        'conversations': conversations,
+        'note': 'five connects in one app process; only the first starts with a fresh process',
+      },
+    );
+    expect(pass, isTrue);
+  }, skip: skipped('B1'));
+
+  testWidgets(
+    'B3 automatic refresh with 3-minute tokens for 15 minutes',
+    (tester) async {
+      final start = DateTime.now();
+      int seconds() => DateTime.now().difference(start).inSeconds;
+      await withClient('$run-b3', ttl: 180, tokenProvider: () => fetchToken('$run-b3', ttl: 180), (client, log) async {
+        final refreshedAt = <int>[];
+        final subscription = client.events.listen((e) {
+          if (e is TokenRefreshed) refreshedAt.add(seconds());
+        });
+        final conversation = await client.createConversation(uniqueName: '$run-b3');
+        await client.join(conversation.sid);
+        var sent = 0;
+        final failures = <String>[];
+        while (DateTime.now().difference(start) < const Duration(minutes: 15)) {
+          try {
+            await client.sendText(conversation.sid, 'b3 $sent');
+            sent++;
+          } on ConversationsException catch (e) {
+            failures.add('${seconds()}s $e');
+          }
+          await Future<void>.delayed(const Duration(seconds: 30));
+        }
+        await subscription.cancel();
+        final states = [
+          for (final e in log.events)
+            if (e is ConnectionStateChanged) e.state.name,
+        ];
+        const visible = {'disconnected', 'denied', 'error', 'fatalError'};
+        final pass = failures.isEmpty && refreshedAt.length >= 4 && !states.any(visible.contains);
+        report(
+          'B3',
+          pass: pass,
+          data: {
+            'minutes': 15,
+            'sent': sent,
+            'failures': failures,
+            'refreshedAtSeconds': refreshedAt,
+            'refreshFailures': log.events.whereType<TokenRefreshFailed>().length,
+            'connectionStates': states,
+          },
+        );
+        expect(pass, isTrue);
+      });
+    },
+    skip: notNamed('B3'),
+    timeout: const Timeout(Duration(minutes: 20)),
+  );
+
+  testWidgets(
+    'E1 network drop',
+    (tester) async {
+      await withClient('$run-e1', (client, log) async {
+        final conversation = await client.createConversation(uniqueName: '$run-e1');
+        await client.join(conversation.sid);
+        final mark = log.events.length;
+        bool after(ConversationsEvent e, int index) => log.events.indexOf(e) >= index;
+        await instruct(tester, 'E1', 'Turn ON airplane mode, with Wi-Fi off too.');
+        final dropped = await log.waitFor<ConnectionStateChanged>(
+          (e) => e.state != ClientConnectionState.connected && after(e, mark),
+          timeout: const Duration(minutes: 5),
+        );
+        final droppedAt = DateTime.now();
+        // The Mac sends three messages into the conversation while this phone is offline.
+        debugPrint('POC-SEND ${conversation.sid} e1-offline');
+        await instruct(tester, 'E1', 'Offline seen. Wait 30 seconds, then turn airplane mode OFF and Wi-Fi back on.');
+        final back = log.events.length;
+        await log.waitFor<ConnectionStateChanged>(
+          (e) => e.state == ClientConnectionState.connected && after(e, back),
+          timeout: const Duration(minutes: 5),
+        );
+        final offlineSeconds = DateTime.now().difference(droppedAt).inSeconds;
+        await instruct(tester, 'E1', 'Back online. Checking the messages; nothing to do.');
+        List<String> received() => [
+          for (final e in log.events)
+            if (e is MessageAdded && (e.message.body ?? '').startsWith('e1-offline')) e.message.body!,
+        ];
+        final deadline = DateTime.now().add(const Duration(seconds: 60));
+        while (received().toSet().length < 3 && DateTime.now().isBefore(deadline)) {
+          await Future<void>.delayed(const Duration(milliseconds: 200));
+        }
+        await Future<void>.delayed(const Duration(seconds: 10)); // room for duplicates to show up
+        final got = received();
+        final pass = got.length == 3 && got.toSet().length == 3;
+        report(
+          'E1',
+          pass: pass,
+          data: {'droppedTo': dropped.state.name, 'secondsOffline': offlineSeconds, 'messagesReceived': got},
+        );
+        expect(pass, isTrue);
+      });
+    },
+    skip: notNamed('E1'),
+    timeout: const Timeout(Duration(minutes: 15)),
+  );
+
+  testWidgets(
+    'E2 ten minutes in the background',
+    (tester) async {
+      await withClient('$run-e2', (client, log) async {
+        final conversation = await client.createConversation(uniqueName: '$run-e2');
+        await client.join(conversation.sid);
+        final lifecycle = LifecycleLog();
+        await instruct(
+          tester,
+          'E2',
+          'Press Home now. Leave this app in the background for 10 minutes, then reopen it.',
+        );
+        final pausedAt = await lifecycle.waitFor(AppLifecycleState.paused, const Duration(minutes: 5));
+        // The Mac sends three messages into the conversation while the app is in the background.
+        debugPrint('POC-SEND ${conversation.sid} e2-background');
+        final resumedAt = await lifecycle.waitFor(
+          AppLifecycleState.resumed,
+          const Duration(minutes: 30),
+          after: pausedAt,
+        );
+        final mark = log.events.length;
+        await instruct(tester, 'E2', 'Welcome back. Checking the messages; nothing to do.');
+        int? reconnectMs;
+        int? messagesMs;
+        final deadline = DateTime.now().add(const Duration(seconds: 30));
+        while (messagesMs == null && DateTime.now().isBefore(deadline)) {
+          final ms = DateTime.now().difference(resumedAt).inMilliseconds;
+          final events = log.events.sublist(mark);
+          if (reconnectMs == null &&
+              events.any((e) => e is ConnectionStateChanged && e.state == ClientConnectionState.connected)) {
+            reconnectMs = ms;
+          }
+          final bodies = {
+            for (final e in log.events)
+              if (e is MessageAdded && (e.message.body ?? '').startsWith('e2-background')) e.message.body,
+          };
+          if (bodies.length == 3) messagesMs = ms;
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+        }
+        lifecycle.dispose();
+        final dropped = log.events.sublist(mark).any((e) => e is ConnectionStateChanged);
+        // No connection event after resuming means the connection never dropped.
+        final pass = (reconnectMs ?? 0) <= 5000 && messagesMs != null;
+        report(
+          'E2',
+          pass: pass,
+          data: {
+            'minutesInBackground': (resumedAt.difference(pausedAt).inSeconds / 60).toStringAsFixed(1),
+            'connectionEventsAfterResume': dropped,
+            'reconnectMsAfterResume': reconnectMs,
+            'messagesMsAfterResume': messagesMs,
+          },
+        );
+        expect(pass, isTrue);
+      });
+    },
+    skip: notNamed('E2'),
+    timeout: const Timeout(Duration(minutes: 40)),
+  );
+
+  testWidgets(
+    'E3 killed and relaunched',
+    (tester) async {
+      if (!e3Relaunched) {
+        final identity = '$run-e3';
+        e3Marker.writeAsStringSync(identity);
+        await withClient(identity, (client, log) async {
+          final conversation = await client.createConversation(uniqueName: identity);
+          await client.join(conversation.sid);
+          await client.sendText(conversation.sid, 'before kill');
+          await instruct(tester, 'E3', 'Nothing to do: the Mac kills and relaunches this app now.');
+          await Future<void>.delayed(const Duration(minutes: 5));
+        });
+        e3Marker.deleteSync();
+        report('E3', pass: false, data: {'skipped': 'the app was not killed within 5 minutes'});
+        fail('the app was not killed');
+      }
+      final identity = e3Marker.readAsStringSync();
+      e3Marker.deleteSync();
+      final stopwatch = Stopwatch()..start();
+      await withClient(identity, (client, log) async {
+        await client.waitUntilSynced();
+        final syncMs = stopwatch.elapsedMilliseconds;
+        final conversation = (await client.myConversations()).where((c) => c.uniqueName == identity).firstOrNull;
+        final last = conversation == null
+            ? null
+            : (await client.getLastMessages(conversation.sid, count: 1)).firstOrNull?.body;
+        final sent = conversation == null ? null : await client.sendText(conversation.sid, 'after relaunch');
+        final pass = conversation != null && last == 'before kill' && sent != null;
+        report(
+          'E3',
+          pass: pass,
+          data: {
+            'syncMsAfterRelaunchWithTokenFetch': syncMs,
+            'conversationFound': conversation != null,
+            'lastMessage': last,
+          },
+        );
+        expect(pass, isTrue);
+      });
+    },
+    skip: notNamed('E3'),
+    timeout: const Timeout(Duration(minutes: 10)),
+  );
 }

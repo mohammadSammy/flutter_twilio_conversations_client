@@ -5,7 +5,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_twilio_conversations_client/flutter_twilio_conversations_client.dart';
 import 'package:integration_test/integration_test.dart';
@@ -21,6 +21,12 @@ IntegrationTestWidgetsFlutterBinding setUpPoc() {
   debugPrint = (message, {wrapWidth}) {
     flutterPrint(message, wrapWidth: wrapWidth);
     if (Platform.isIOS) stdout.writeln(message);
+  };
+  // Release builds print no exception details, so print the failure itself too.
+  final defaultReporter = reportTestException;
+  reportTestException = (details, description) {
+    debugPrint('POC-FAILED $description: ${details.exception}');
+    defaultReporter(details, description);
   };
   tearDownAll(() => stdout.writeln('integration_test results: ${binding.results}'));
   return binding;
@@ -79,4 +85,45 @@ double percentile(List<num> values, int p) {
   if (values.isEmpty) return double.nan;
   final sorted = [...values]..sort();
   return sorted[(p / 100 * (sorted.length - 1)).round()].toDouble();
+}
+
+/// Shows a step on the phone's screen for the person holding it, and logs it for the Mac.
+Future<void> instruct(WidgetTester tester, String id, String text) async {
+  debugPrint('POC-STEP $id $text');
+  await tester.pumpWidget(
+    MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text('$id\n\n$text', style: const TextStyle(fontSize: 26), textAlign: TextAlign.center),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// Records app lifecycle changes, so a test can wait for the app to leave and come back.
+class LifecycleLog {
+  LifecycleLog() {
+    _listener = AppLifecycleListener(onStateChange: (state) => _states.add((state, DateTime.now())));
+  }
+
+  final _states = <(AppLifecycleState, DateTime)>[];
+  late final AppLifecycleListener _listener;
+
+  /// When [state] was first reached after [after].
+  Future<DateTime> waitFor(AppLifecycleState state, Duration timeout, {DateTime? after}) async {
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      for (final (s, at) in _states) {
+        if (s == state && (after == null || at.isAfter(after))) return at;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    }
+    throw TimeoutException('app not ${state.name} within $timeout');
+  }
+
+  void dispose() => _listener.dispose();
 }
