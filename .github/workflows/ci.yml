@@ -20,7 +20,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: ${{ matrix.flutter == 'stable' && '' || matrix.flutter }}
+          flutter-version: ${{ matrix.flutter == 'stable' && 'any' || matrix.flutter }}
           cache: true
 
       - name: Get packages
@@ -63,7 +63,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: ${{ matrix.flutter == 'stable' && '' || matrix.flutter }}
+          flutter-version: ${{ matrix.flutter == 'stable' && 'any' || matrix.flutter }}
           cache: true
 
       - name: Build
