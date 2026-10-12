@@ -16,13 +16,13 @@ The Must criteria from [poc-success-criteria.md](poc-success-criteria.md), measu
 
 ## Outcome
 
-**Every Must criterion that can be tested on the phones passes on both platforms.** **The exception is B3** (automatic refresh with 3-minute tokens), which fails on both platforms; see [B3](#b3-token-refresh-with-short-tokens). A1 and G3 depend on CI runs on Flutter 3.44 and stable, which haven't happened yet.
+**Every Must criterion that can be tested on the phones passes on both platforms.** **The exception is B3** (automatic refresh with 3-minute tokens), which fails on both platforms; see [B3](#b3-token-refresh-with-short-tokens). A1 and G3 pass in CI on Flutter 3.44 and on stable.
 
 ## Results
 
 | # | Criterion | iOS | Android | Notes |
 |---|---|---|---|---|
-| A1 | Builds on both platforms | Pass on 3.47.6 | Pass on 3.47.6 | Flutter 3.44 and the latest stable are covered by the CI `build` job, which hasn't run yet |
+| A1 | Builds on both platforms | **Pass** | **Pass** | Locally on 3.47.6. In CI ([run 38242932260](https://github.com/mohammadSammy/flutter_twilio_conversations_client/actions/runs/38242932260)) the example builds for iOS and Android on Flutter 3.44 and on the latest stable |
 | A2 | Release build works | n/a | **Pass** | A release build with R8 ran every one-phone, two-phone and real-world scenario without a crash |
 | A3 | App size cost | **+10.7 MB** app bundle, **+2.4 MB** zipped IPA | **+6.0 MB** arm64, **+3.6 MB** armv7, **+4.8 MB** x86_64 | Measured with a new `flutter create` app built with and without the plugin. The iOS bundle grows from 14.2 to 24.9 MB, and the zipped IPA from 6.2 to 8.6 MB |
 | B1 | Connects and syncs | **Pass:** median 3.3 s | **Pass:** median 3.7 s | Identity with 20 conversations. Raw times: iOS 3346, 2617, 3124, 3354, 3259 ms; Android 3654, 3490, 3958, 4301, 3328 ms. All five connects ran in one app process |
@@ -46,7 +46,7 @@ The Must criteria from [poc-success-criteria.md](poc-success-criteria.md), measu
 | D3 | Upload outlives the screen (Should) | **Pass** (v0.1.1) | Not run | iOS: after Home was pressed during a 50 MB upload, it kept uploading for 30 s (5.8 to 15.7 MB). Then iOS suspended the app, and on return 74 s later the upload ended with `MediaUploadException` at once, with no hang. An upload whose widget was removed before it finished was sent normally. Before 0.1.1 the plugin held no iOS background task |
 | G1 | API matches the design | Pass | Pass | Needed a fix; see below |
 | G2 | Logic tested without devices | Pass | Pass | 25 Dart unit tests with a fake platform cover token refresh, error mapping, events and uploads |
-| G3 | Clean CI | Pending | Pending | `flutter analyze`, the format check and the unit tests are clean locally. The CI workflow hasn't run yet |
+| G3 | Clean CI | **Pass** | **Pass** | In [run 38242932260](https://github.com/mohammadSammy/flutter_twilio_conversations_client/actions/runs/38242932260), analyze, the format check, the unit tests and the generated-code check pass on Flutter 3.44 and on stable |
 | G4 | Verification list done | Pass | Pass | Every item in [api-design.md](api-design.md) §15 is checked |
 
 ## B3: token refresh with short tokens
