@@ -1,3 +1,8 @@
+## 0.1.2 (2026-10-13)
+
+* Fixed: after a Flutter hot restart, `connect` failed with `ClientAlreadyConnectedException` and left the app without a connection. A hot restart resets Dart but keeps the native client, which Dart could no longer shut down. Native `connect` now replaces a client left over like this. Dart still refuses a real second `connect`.
+* iOS: `shutdown` detaches the plugin from the old client, so none of its events reach a later session. Android already did this.
+
 ## 0.1.1 (2026-10-12)
 
 * iOS: an upload now keeps going for about 30 s after the user leaves the app. Before, it stopped at once. After that time it fails with `MediaUploadException` when the app comes back, instead of hanging.

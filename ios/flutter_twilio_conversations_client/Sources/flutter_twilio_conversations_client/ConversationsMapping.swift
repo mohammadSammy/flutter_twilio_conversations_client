@@ -153,7 +153,6 @@ extension Date {
 /// The error codes Dart maps to ConversationsException types (see pigeons/conversations_api.dart).
 enum PluginErrors {
   static let notConnected = PigeonError(code: "not_connected", message: "connect has not completed, or the client was shut down", details: nil)
-  static let alreadyConnected = PigeonError(code: "already_connected", message: "a client is already connected; call shutdown first", details: nil)
 
   static func conversationNotFound(_ sidOrUniqueName: String) -> PigeonError {
     PigeonError(code: "conversation_not_found", message: "no conversation \(sidOrUniqueName)", details: nil)

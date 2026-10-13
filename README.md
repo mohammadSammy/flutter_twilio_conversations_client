@@ -2,7 +2,7 @@
 
 An **unofficial** Flutter plugin for [Twilio Conversations](https://www.twilio.com/docs/conversations-classic), wrapping Twilio's native iOS and Android Conversations SDKs behind a typed Dart API.
 
-> **Status: 0.1.1, not on pub.dev yet.** The first-release API works on iOS and Android. It is tested on real phones against the proof-of-concept criteria; see [the results](docs/poc-results.md).
+> **Status: 0.1.2, not on pub.dev yet.** The first-release API works on iOS and Android. It is tested on real phones against the proof-of-concept criteria; see [the results](docs/poc-results.md).
 
 ## Installation
 
@@ -13,7 +13,7 @@ dependencies:
   flutter_twilio_conversations_client:
     git:
       url: https://github.com/mohammadSammy/flutter_twilio_conversations_client.git
-      ref: v0.1.1
+      ref: v0.1.2
 ```
 
 iOS needs Swift Package Manager. Twilio stopped publishing its SDK through CocoaPods, so this plugin supports Swift Package Manager only. Turn it on for your app in `pubspec.yaml`:

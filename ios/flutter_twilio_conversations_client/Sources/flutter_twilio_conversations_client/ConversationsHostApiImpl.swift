@@ -22,7 +22,9 @@ final class ConversationsHostApiImpl: NSObject, ConversationsHostApi {
   // MARK: Client
 
   func connect(token: String, region: String) async throws -> ClientData {
-    guard client == nil else { throw PluginErrors.alreadyConnected }
+    // Dart refuses a second connect itself, so a client here was left behind by a Dart hot
+    // restart, which Dart can no longer reach. Replace it.
+    if client != nil { try await shutdown() }
     let properties = TwilioConversationsClientProperties()
     if !region.isEmpty { properties.region = region }
 
@@ -51,6 +53,7 @@ final class ConversationsHostApiImpl: NSObject, ConversationsHostApi {
 
   /// Safe to call twice: shutting down without a client does nothing.
   func shutdown() async throws {
+    client?.delegate = nil  // nothing from the old client reaches a later session
     client?.shutdown()
     client = nil
   }

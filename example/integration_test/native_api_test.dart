@@ -69,7 +69,9 @@ void main() {
     await expectLater(api.myConversations(), failsWith('not_connected'));
     final client = await api.connect(token, 'us1');
     expect(client.myIdentity, isNotEmpty);
-    await expectLater(api.connect(token, 'us1'), failsWith('already_connected'));
+    // A second native connect means Dart lost its client (a hot restart): it replaces the first.
+    final replaced = await api.connect(token, 'us1');
+    expect(replaced.myIdentity, client.myIdentity);
     await waitFor<ConnectionStateEvent>((e) => e.state == PlatformConnectionState.connected);
     await waitFor<SyncStatusEvent>((e) => e.status == PlatformSyncStatus.completed);
 

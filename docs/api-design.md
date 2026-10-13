@@ -111,7 +111,7 @@ connect() ─▶ connecting ─▶ connected ─▶ sync: started ─▶ convers
 
 **Why `waitUntilSynced`:** most calls aren't reliable before sync completes. Chat screens typically wait for it before loading anything. Exposing it as a Future saves every app writing the same stream filter.
 
-**Why only one client:** both SDKs are designed around one client per identity. A second `connect` while one is active throws `ClientAlreadyConnectedException`.
+**Why only one client:** both SDKs are designed around one client per identity. A second `connect` while one is active throws `ClientAlreadyConnectedException`. Dart enforces this, because the native side can't tell a second `connect` from a Flutter hot restart. A hot restart resets Dart but keeps the native client, so native `connect` replaces any client it still holds.
 
 ## 4. Tokens: automatic or manual
 

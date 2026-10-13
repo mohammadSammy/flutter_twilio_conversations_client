@@ -48,7 +48,9 @@ class ConversationsHostApiImpl(
     // Client
 
     override suspend fun connect(token: String, region: String): ClientData {
-        if (client != null) throw PluginErrors.alreadyConnected
+        // Dart refuses a second connect itself, so a client here was left behind by a Dart hot
+        // restart, which Dart can no longer reach. Replace it; shutdown removes its listeners.
+        if (client != null) shutdown()
         val properties = ConversationsClient.Properties.newBuilder()
             .apply { if (region.isNotEmpty()) setRegion(region) }
             .createProperties()

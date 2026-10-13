@@ -114,7 +114,6 @@ val PlatformLogLevel.twilio
 /** The error codes Dart maps to ConversationsException types (see pigeons/conversations_api.dart). */
 object PluginErrors {
     val notConnected get() = FlutterError("not_connected", "connect has not completed, or the client was shut down")
-    val alreadyConnected get() = FlutterError("already_connected", "a client is already connected; call shutdown first")
 
     fun mediaUpload(message: String, twilioCode: Int? = null) = FlutterError("media_upload", message, twilioCode)
 
