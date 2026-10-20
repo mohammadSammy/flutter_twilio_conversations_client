@@ -1,3 +1,14 @@
+## 0.1.3 (2026-10-20)
+
+* New events:
+  * `ConversationUpdated(conversation, reason)`: one of this identity's conversations changed. The reasons include its last read message (also when read on another device), its last message, the user's status and the conversation's state. Use it to keep read state and unread badges current.
+  * `ConversationDeleted(conversationSid)`: this identity left or was removed, or the conversation was closed or deleted.
+  * `ParticipantUpdated(conversationSid, participant, reason)`: for example someone else read messages, for read receipts.
+* New calls: `advanceLastReadMessageIndex` (never moves the read position back) and `setAllMessagesRead`. Both return the new unread count.
+* Breaking for exhaustive `switch`es over `ConversationsEvent`: add cases for the three new events, or a default case.
+* Android: `advanceLastReadMessageIndex` to an index behind the current one is ignored, as on iOS. The Android SDK fails instead.
+* Android fixed: a conversation that wasn't synchronized yet crashed the app when turned into a `Conversation`, because its `lastReadMessageIndex` throws until then. It's now `null` until synchronized.
+
 ## 0.1.2 (2026-10-13)
 
 * Fixed: after a Flutter hot restart, `connect` failed with `ClientAlreadyConnectedException` and left the app without a connection. A hot restart resets Dart but keeps the native client, which Dart could no longer shut down. Native `connect` now replaces a client left over like this. Dart still refuses a real second `connect`.

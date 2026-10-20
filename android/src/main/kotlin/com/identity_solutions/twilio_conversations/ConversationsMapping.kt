@@ -28,7 +28,9 @@ fun Conversation.toData() = ConversationData(
     attributesJson = attributes?.jsonString(),
     lastMessageIndex = lastMessageIndex,
     lastMessageDateMillis = lastMessageDate?.time,
-    lastReadMessageIndex = lastReadMessageIndex,
+    // Android throws for this until the conversation is synchronized (seen in an early onConversationUpdated);
+    // null until then, and a later ConversationUpdated carries the real value.
+    lastReadMessageIndex = runCatching { lastReadMessageIndex }.getOrNull(),
     dateCreatedMillis = dateCreatedAsDate?.time,
     createdBy = createdBy,
 )
@@ -98,6 +100,25 @@ val ConversationsClient.SynchronizationStatus.platform
         ConversationsClient.SynchronizationStatus.COMPLETED -> PlatformSyncStatus.COMPLETED
         ConversationsClient.SynchronizationStatus.FAILED -> PlatformSyncStatus.FAILED
         else -> null
+    }
+
+val Conversation.UpdateReason.platform
+    get() = when (this) {
+        Conversation.UpdateReason.STATUS -> PlatformConversationUpdateReason.STATUS
+        Conversation.UpdateReason.LAST_READ_MESSAGE_INDEX -> PlatformConversationUpdateReason.LAST_READ_MESSAGE_INDEX
+        Conversation.UpdateReason.UNIQUE_NAME -> PlatformConversationUpdateReason.UNIQUE_NAME
+        Conversation.UpdateReason.FRIENDLY_NAME -> PlatformConversationUpdateReason.FRIENDLY_NAME
+        Conversation.UpdateReason.ATTRIBUTES -> PlatformConversationUpdateReason.ATTRIBUTES
+        Conversation.UpdateReason.LAST_MESSAGE -> PlatformConversationUpdateReason.LAST_MESSAGE
+        Conversation.UpdateReason.NOTIFICATION_LEVEL -> PlatformConversationUpdateReason.NOTIFICATION_LEVEL
+        Conversation.UpdateReason.STATE -> PlatformConversationUpdateReason.STATE
+    }
+
+val Participant.UpdateReason.platform
+    get() = when (this) {
+        Participant.UpdateReason.LAST_READ_MESSAGE_INDEX -> PlatformParticipantUpdateReason.LAST_READ_MESSAGE_INDEX
+        Participant.UpdateReason.LAST_READ_TIMESTAMP -> PlatformParticipantUpdateReason.LAST_READ_TIMESTAMP
+        Participant.UpdateReason.ATTRIBUTES -> PlatformParticipantUpdateReason.ATTRIBUTES
     }
 
 val PlatformLogLevel.twilio

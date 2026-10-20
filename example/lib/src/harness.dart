@@ -152,6 +152,13 @@ class Harness extends ChangeNotifier {
       TokenRefreshed(:final expiresAt) => 'token refreshed; expires $expiresAt',
       TokenRefreshFailed(:final error) => 'token refresh failed: $error',
       ConversationAdded(:final conversation) => 'conversation added: ${_name(conversation)}',
+      ConversationUpdated(:final conversation, :final reason) =>
+        'conversation ${_name(conversation)} updated: ${reason.name} '
+            '(last read ${conversation.lastReadMessageIndex}, last message ${conversation.lastMessageIndex})',
+      ConversationDeleted(:final conversationSid) => 'conversation $conversationSid removed or deleted',
+      ParticipantUpdated(:final conversationSid, :final participant, :final reason) =>
+        '${participant.identity} in $conversationSid updated: ${reason.name} '
+            '(last read ${participant.lastReadMessageIndex})',
       MessageAdded(:final message, :final conversation) =>
         'message #${message.index} in ${_name(conversation)} from ${message.author}: '
             '${message.body ?? '${message.media.length} media'}',

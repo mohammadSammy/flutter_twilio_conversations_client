@@ -209,6 +209,14 @@ interface class TwilioConversationsClient {
   Future<int?> setLastReadMessageIndex(String conversationSid, int index) =>
       _call(() => _platform.setLastReadMessageIndex(conversationSid, index));
 
+  /// Like [setLastReadMessageIndex], but never moves the read position back. Returns the
+  /// unread count after the change.
+  Future<int?> advanceLastReadMessageIndex(String conversationSid, int index) =>
+      _call(() => _platform.advanceLastReadMessageIndex(conversationSid, index));
+
+  /// Marks every message read. Returns the unread count after the change (0).
+  Future<int?> setAllMessagesRead(String conversationSid) => _call(() => _platform.setAllMessagesRead(conversationSid));
+
   Future<Message> sendText(String conversationSid, String body) =>
       _call(() async => messageFromPlatform(await _platform.sendText(conversationSid, body)));
 
@@ -302,6 +310,23 @@ interface class TwilioConversationsClient {
         if (_tokenProvider != null) unawaited(_autoRefresh(++_refreshGeneration));
       case ConversationAddedEvent(:final conversation):
         _emit(ConversationAdded(conversationFromPlatform(conversation)));
+      case ConversationUpdatedEvent(:final conversation, :final reason):
+        _emit(
+          ConversationUpdated(
+            conversationFromPlatform(conversation),
+            ConversationUpdateReason.values.byName(reason.name),
+          ),
+        );
+      case ConversationDeletedEvent(:final conversationSid):
+        _emit(ConversationDeleted(conversationSid));
+      case ParticipantUpdatedEvent(:final conversationSid, :final participant, :final reason):
+        _emit(
+          ParticipantUpdated(
+            conversationSid,
+            participantFromPlatform(participant),
+            ParticipantUpdateReason.values.byName(reason.name),
+          ),
+        );
       case MessageAddedEvent(:final message, :final conversation):
         _emit(MessageAdded(messageFromPlatform(message), conversationFromPlatform(conversation)));
       case MessageUpdatedEvent(:final message):

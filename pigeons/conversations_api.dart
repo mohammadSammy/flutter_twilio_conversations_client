@@ -47,6 +47,21 @@ enum PlatformPushTokenType { apns, fcm }
 
 enum PlatformTokenEventType { aboutToExpire, expired }
 
+/// What changed on a conversation (both SDKs report the same reasons).
+enum PlatformConversationUpdateReason {
+  status,
+  lastReadMessageIndex,
+  uniqueName,
+  friendlyName,
+  attributes,
+  lastMessage,
+  notificationLevel,
+  state,
+}
+
+/// What changed on a participant.
+enum PlatformParticipantUpdateReason { lastReadMessageIndex, lastReadTimestamp, attributes }
+
 class ClientData {
   ClientData({required this.myIdentity, required this.connectionState, required this.syncStatus});
 
@@ -177,6 +192,10 @@ abstract class ConversationsHostApi {
   @async
   int? setLastReadMessageIndex(String conversationSid, int index);
   @async
+  int? advanceLastReadMessageIndex(String conversationSid, int index);
+  @async
+  int? setAllMessagesRead(String conversationSid);
+  @async
   MessageData sendText(String conversationSid, String body);
 
   /// Progress arrives as [UploadProgressEvent]s carrying [uploadId].
@@ -221,6 +240,25 @@ class TokenEvent extends PlatformEvent {
 class ConversationAddedEvent extends PlatformEvent {
   ConversationAddedEvent(this.conversation);
   final ConversationData conversation;
+}
+
+class ConversationUpdatedEvent extends PlatformEvent {
+  ConversationUpdatedEvent(this.conversation, this.reason);
+  final ConversationData conversation;
+  final PlatformConversationUpdateReason reason;
+}
+
+/// The current user left or was removed, or the conversation was closed or deleted.
+class ConversationDeletedEvent extends PlatformEvent {
+  ConversationDeletedEvent(this.conversationSid);
+  final String conversationSid;
+}
+
+class ParticipantUpdatedEvent extends PlatformEvent {
+  ParticipantUpdatedEvent(this.conversationSid, this.participant, this.reason);
+  final String conversationSid;
+  final ParticipantData participant;
+  final PlatformParticipantUpdateReason reason;
 }
 
 class MessageAddedEvent extends PlatformEvent {

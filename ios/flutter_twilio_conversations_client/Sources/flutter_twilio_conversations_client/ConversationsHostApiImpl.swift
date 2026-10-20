@@ -151,6 +151,24 @@ final class ConversationsHostApiImpl: NSObject, ConversationsHostApi {
     }
   }
 
+  /// Like setLastReadMessageIndex, but never moves the read position back.
+  func advanceLastReadMessageIndex(conversationSid: String, index: Int64) async throws -> Int64? {
+    let conversation = try await conversation(conversationSid)
+    return try await withCheckedThrowingContinuation { continuation in
+      conversation.advanceLastReadMessageIndex(NSNumber(value: index)) { result, count in
+        continuation.resume(with: result.isSuccessful ? .success(Int64(count)) : .failure(PluginErrors.from(result)))
+      }
+    }
+  }
+
+  func setAllMessagesRead(conversationSid: String) async throws -> Int64? {
+    let conversation = try await conversation(conversationSid)
+    // Swift only offers the async form of this zero-argument call; the completion form is shadowed.
+    let (result, count) = await conversation.setAllMessagesRead()
+    guard result.isSuccessful else { throw PluginErrors.from(result) }
+    return Int64(count)
+  }
+
   func sendText(conversationSid: String, body: String) async throws -> MessageData {
     let conversation = try await conversation(conversationSid)
     return try await send(conversation.prepareMessage().setBody(body), in: conversationSid)
@@ -418,6 +436,33 @@ extension ConversationsHostApiImpl: TwilioConversationsClientDelegate {
     participant: TCHParticipant
   ) {
     MainActor.assumeIsolated { sendTyping(conversation, participant, started: false) }
+  }
+
+  nonisolated func conversationsClient(
+    _ client: TwilioConversationsClient, conversation: TCHConversation, updated: TCHConversationUpdate
+  ) {
+    MainActor.assumeIsolated {
+      guard let data = conversation.toData(), let reason = updated.platform else { return }
+      events.send(ConversationUpdatedEvent(conversation: data, reason: reason))
+    }
+  }
+
+  /// The current user left or was removed, or the conversation was closed or deleted.
+  nonisolated func conversationsClient(_ client: TwilioConversationsClient, conversationDeleted conversation: TCHConversation) {
+    MainActor.assumeIsolated {
+      guard let sid = conversation.sid else { return }
+      events.send(ConversationDeletedEvent(conversationSid: sid))
+    }
+  }
+
+  nonisolated func conversationsClient(
+    _ client: TwilioConversationsClient, conversation: TCHConversation, participant: TCHParticipant,
+    updated: TCHParticipantUpdate
+  ) {
+    MainActor.assumeIsolated {
+      guard let sid = conversation.sid, let data = participant.toData(), let reason = updated.platform else { return }
+      events.send(ParticipantUpdatedEvent(conversationSid: sid, participant: data, reason: reason))
+    }
   }
 
   nonisolated func conversationsClient(_ client: TwilioConversationsClient, errorReceived error: TCHError) {

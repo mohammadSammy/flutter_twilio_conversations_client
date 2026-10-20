@@ -171,7 +171,9 @@ extension on TwilioConversationsClient {   // shown as methods on the client
   // Read state                                                               T1
   Future<int?> getUnreadMessagesCount(String conversationSid);   // null = never read anything
   Future<int?> setLastReadMessageIndex(String conversationSid, int index); // returns new unread count
-  // T2: advanceLastReadMessageIndex, setAllMessagesRead, setAllMessagesUnread
+  Future<int?> advanceLastReadMessageIndex(String conversationSid, int index); // never moves back (0.1.3)
+  Future<int?> setAllMessagesRead(String conversationSid);                    // returns 0 (0.1.3)
+  // T2: setAllMessagesUnread
 
   // Sending                                                                  T1
   Future<Message> sendText(String conversationSid, String body);
@@ -205,7 +207,8 @@ interface class MediaSend {
 
 Design notes:
 - **`getUnreadMessagesCount` returns `int?`.** Twilio returns nothing until the user has read at least one message. An app typically treats that as "everything is unread" and falls back to the total message count. Turning null into 0 would hide that case and under-count the badge.
-- **`setLastReadMessageIndex` returns the new unread count,** because both SDKs already give it back. That saves a second call.
+- **`setLastReadMessageIndex` returns the new unread count,** because both SDKs already give it back. That saves a second call, and it's fresher than `getUnreadMessagesCount`. The SDKs call that one "semi-real-time": it asks the server, but caches the answer for 5 seconds.
+- **Read state in real time:** a conversation's `lastReadMessageIndex` and `lastMessageIndex` are kept current by the SDK. `ConversationUpdated` reports each change, including a read on another device. `ParticipantUpdated` reports other people reading, which is what read receipts are built on.
 - **Media goes by file path.** Bytes crossing the platform channel are copied, and a large video would freeze the app. The native side opens the file as a stream, so memory use stays flat whatever the file size.
 - **`MediaSend` is per upload, not a global event,** so an app-level upload store can own each upload and show its progress, even after the chat screen closes.
 - **iOS background time:** while any upload is running, the plugin holds one iOS background task, so an upload keeps going for about 30 s after the user leaves the app. The task ends when the last upload ends. If iOS runs out of time first, it suspends the app, and the upload either resumes or fails with `MediaUploadException` when the app comes back.
@@ -230,8 +233,10 @@ final class MessageUpdated         extends ConversationsEvent { final Message me
 final class TypingStarted          extends ConversationsEvent { final String conversationSid; final Participant participant; } // T1
 final class TypingEnded            extends ConversationsEvent { final String conversationSid; final Participant participant; } // T1
 final class ClientErrorOccurred    extends ConversationsEvent { final ConversationsException error; } // T1
-// T2: ConversationUpdated, ConversationDeleted, MessageDeleted,
-//     ParticipantAdded/Updated/Removed, UserUpdated
+final class ConversationUpdated    extends ConversationsEvent { final Conversation conversation; final ConversationUpdateReason reason; } // 0.1.3
+final class ConversationDeleted    extends ConversationsEvent { final String conversationSid; }       // 0.1.3: left, removed, closed or deleted
+final class ParticipantUpdated     extends ConversationsEvent { final String conversationSid; final Participant participant; final ParticipantUpdateReason reason; } // 0.1.3
+// T2: MessageDeleted, ParticipantAdded/Removed, UserUpdated
 ```
 
 Design notes:
@@ -367,6 +372,8 @@ final class TwilioException                   extends ConversationsException {} 
 | `getLastMessages` | `conversation.getLastMessages(withCount:completion:)` | `conversation.getLastMessages(count, callback)` |
 | `getUnreadMessagesCount` | `conversation.getUnreadMessagesCount(completion:)` | `conversation.getUnreadMessagesCount(callback)` |
 | `setLastReadMessageIndex` | `conversation.setLastReadMessageIndex(_:completion:)` | `conversation.setLastReadMessageIndex(index, callback)` |
+| `advanceLastReadMessageIndex` | `conversation.advanceLastReadMessageIndex(_:completion:)` | `conversation.advanceLastReadMessageIndex(index, callback)` |
+| `setAllMessagesRead` | `conversation.setAllMessagesRead()` (async) | `conversation.setAllMessagesRead(callback)` |
 | `sendText` | `prepareMessage().setBody(_:).buildAndSend(completion:)` | `prepareMessage().setBody().buildAndSend` |
 | `sendMedia` | `prepareMessage().addMedia(inputStream:contentType:filename:listener:)` | `prepareMessage().addMedia(inputStream, contentType, filename, MediaUploadListener)` |
 | `typing` | `conversation.typing()` | `conversation.typing()` |
@@ -375,6 +382,9 @@ final class TwilioException                   extends ConversationsException {} 
 | `MessageAdded` (all conversations) | client delegate `conversationsClient(_:conversation:messageAdded:)` | a `ConversationListener` added to each conversation by the plugin |
 | `TypingStarted/Ended` | client delegate `typingStartedOn` / `typingEndedOn` | `ConversationListener.onTypingStarted/Ended` |
 | token events | `conversationsClientTokenWillExpire` / `TokenExpired` | `onTokenAboutToExpire` / `onTokenExpired` |
+| `ConversationUpdated` | client delegate `conversation:updated:` | `ConversationsClientListener.onConversationUpdated` |
+| `ConversationDeleted` | client delegate `conversationDeleted:` | `ConversationsClientListener.onConversationDeleted` |
+| `ParticipantUpdated` | client delegate `conversation:participant:updated:` | `ConversationListener.onParticipantUpdated` |
 
 The iOS column compiles against `TwilioConversationsClient` 4.0.9 (C5), the Android column against `conversations-android` 6.2.1 (C6). On Android the plugin calls most of these through the SDK's own coroutine extensions (`com.twilio.conversations.extensions`), which wrap the callback versions listed here and fail with `TwilioException`.
 

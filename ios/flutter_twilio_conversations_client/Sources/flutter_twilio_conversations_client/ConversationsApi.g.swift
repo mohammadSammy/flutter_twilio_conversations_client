@@ -232,6 +232,25 @@ enum PlatformTokenEventType: Int, CaseIterable {
   case expired = 1
 }
 
+/// What changed on a conversation (both SDKs report the same reasons).
+enum PlatformConversationUpdateReason: Int, CaseIterable {
+  case status = 0
+  case lastReadMessageIndex = 1
+  case uniqueName = 2
+  case friendlyName = 3
+  case attributes = 4
+  case lastMessage = 5
+  case notificationLevel = 6
+  case state = 7
+}
+
+/// What changed on a participant.
+enum PlatformParticipantUpdateReason: Int, CaseIterable {
+  case lastReadMessageIndex = 0
+  case lastReadTimestamp = 1
+  case attributes = 2
+}
+
 /// Generated class from Pigeon that represents data sent in messages.
 struct ClientData: Hashable, CustomStringConvertible {
   var myIdentity: String
@@ -691,6 +710,128 @@ struct ConversationAddedEvent: PlatformEvent {
 }
 
 /// Generated class from Pigeon that represents data sent in messages.
+struct ConversationUpdatedEvent: PlatformEvent {
+  var conversation: ConversationData
+  var reason: PlatformConversationUpdateReason
+
+
+  // swift-format-ignore: AlwaysUseLowerCamelCase
+  static func fromList(_ pigeonVar_list: [Any?]) -> ConversationUpdatedEvent? {
+    let conversation = pigeonVar_list[0] as! ConversationData
+    let reason = pigeonVar_list[1] as! PlatformConversationUpdateReason
+
+    return ConversationUpdatedEvent(
+      conversation: conversation,
+      reason: reason
+    )
+  }
+  func toList() -> [Any?] {
+    return [
+      conversation,
+      reason,
+    ]
+  }
+  static func == (lhs: ConversationUpdatedEvent, rhs: ConversationUpdatedEvent) -> Bool {
+    if Swift.type(of: lhs) != Swift.type(of: rhs) {
+      return false
+    }
+    return ConversationsApiPigeonInternal.deepEquals(lhs.conversation, rhs.conversation) && ConversationsApiPigeonInternal.deepEquals(lhs.reason, rhs.reason)
+  }
+
+  func hash(into hasher: inout Hasher) {
+    hasher.combine("ConversationUpdatedEvent")
+    ConversationsApiPigeonInternal.deepHash(value: conversation, hasher: &hasher)
+    ConversationsApiPigeonInternal.deepHash(value: reason, hasher: &hasher)
+  }
+
+  public var description: String {
+    return "ConversationUpdatedEvent(conversation: \(String(describing: conversation)), reason: \(String(describing: reason)))"
+  }
+}
+
+/// The current user left or was removed, or the conversation was closed or deleted.
+///
+/// Generated class from Pigeon that represents data sent in messages.
+struct ConversationDeletedEvent: PlatformEvent {
+  var conversationSid: String
+
+
+  // swift-format-ignore: AlwaysUseLowerCamelCase
+  static func fromList(_ pigeonVar_list: [Any?]) -> ConversationDeletedEvent? {
+    let conversationSid = pigeonVar_list[0] as! String
+
+    return ConversationDeletedEvent(
+      conversationSid: conversationSid
+    )
+  }
+  func toList() -> [Any?] {
+    return [
+      conversationSid
+    ]
+  }
+  static func == (lhs: ConversationDeletedEvent, rhs: ConversationDeletedEvent) -> Bool {
+    if Swift.type(of: lhs) != Swift.type(of: rhs) {
+      return false
+    }
+    return ConversationsApiPigeonInternal.deepEquals(lhs.conversationSid, rhs.conversationSid)
+  }
+
+  func hash(into hasher: inout Hasher) {
+    hasher.combine("ConversationDeletedEvent")
+    ConversationsApiPigeonInternal.deepHash(value: conversationSid, hasher: &hasher)
+  }
+
+  public var description: String {
+    return "ConversationDeletedEvent(conversationSid: \(String(describing: conversationSid)))"
+  }
+}
+
+/// Generated class from Pigeon that represents data sent in messages.
+struct ParticipantUpdatedEvent: PlatformEvent {
+  var conversationSid: String
+  var participant: ParticipantData
+  var reason: PlatformParticipantUpdateReason
+
+
+  // swift-format-ignore: AlwaysUseLowerCamelCase
+  static func fromList(_ pigeonVar_list: [Any?]) -> ParticipantUpdatedEvent? {
+    let conversationSid = pigeonVar_list[0] as! String
+    let participant = pigeonVar_list[1] as! ParticipantData
+    let reason = pigeonVar_list[2] as! PlatformParticipantUpdateReason
+
+    return ParticipantUpdatedEvent(
+      conversationSid: conversationSid,
+      participant: participant,
+      reason: reason
+    )
+  }
+  func toList() -> [Any?] {
+    return [
+      conversationSid,
+      participant,
+      reason,
+    ]
+  }
+  static func == (lhs: ParticipantUpdatedEvent, rhs: ParticipantUpdatedEvent) -> Bool {
+    if Swift.type(of: lhs) != Swift.type(of: rhs) {
+      return false
+    }
+    return ConversationsApiPigeonInternal.deepEquals(lhs.conversationSid, rhs.conversationSid) && ConversationsApiPigeonInternal.deepEquals(lhs.participant, rhs.participant) && ConversationsApiPigeonInternal.deepEquals(lhs.reason, rhs.reason)
+  }
+
+  func hash(into hasher: inout Hasher) {
+    hasher.combine("ParticipantUpdatedEvent")
+    ConversationsApiPigeonInternal.deepHash(value: conversationSid, hasher: &hasher)
+    ConversationsApiPigeonInternal.deepHash(value: participant, hasher: &hasher)
+    ConversationsApiPigeonInternal.deepHash(value: reason, hasher: &hasher)
+  }
+
+  public var description: String {
+    return "ParticipantUpdatedEvent(conversationSid: \(String(describing: conversationSid)), participant: \(String(describing: participant)), reason: \(String(describing: reason)))"
+  }
+}
+
+/// Generated class from Pigeon that represents data sent in messages.
 struct MessageAddedEvent: PlatformEvent {
   var message: MessageData
   var conversation: ConversationData
@@ -946,32 +1087,50 @@ private class ConversationsApiPigeonCodecReader: FlutterStandardReader {
       }
       return nil
     case 136:
-      return ClientData.fromList(self.readValue() as! [Any?])
+      let enumResultAsInt: Int? = nilOrValue(self.readValue() as! Int?)
+      if let enumResultAsInt = enumResultAsInt {
+        return PlatformConversationUpdateReason(rawValue: enumResultAsInt)
+      }
+      return nil
     case 137:
-      return ConversationData.fromList(self.readValue() as! [Any?])
+      let enumResultAsInt: Int? = nilOrValue(self.readValue() as! Int?)
+      if let enumResultAsInt = enumResultAsInt {
+        return PlatformParticipantUpdateReason(rawValue: enumResultAsInt)
+      }
+      return nil
     case 138:
-      return MediaData.fromList(self.readValue() as! [Any?])
+      return ClientData.fromList(self.readValue() as! [Any?])
     case 139:
-      return MessageData.fromList(self.readValue() as! [Any?])
+      return ConversationData.fromList(self.readValue() as! [Any?])
     case 140:
-      return ParticipantData.fromList(self.readValue() as! [Any?])
+      return MediaData.fromList(self.readValue() as! [Any?])
     case 141:
-      return ConnectionStateEvent.fromList(self.readValue() as! [Any?])
+      return MessageData.fromList(self.readValue() as! [Any?])
     case 142:
-      return SyncStatusEvent.fromList(self.readValue() as! [Any?])
+      return ParticipantData.fromList(self.readValue() as! [Any?])
     case 143:
-      return TokenEvent.fromList(self.readValue() as! [Any?])
+      return ConnectionStateEvent.fromList(self.readValue() as! [Any?])
     case 144:
-      return ConversationAddedEvent.fromList(self.readValue() as! [Any?])
+      return SyncStatusEvent.fromList(self.readValue() as! [Any?])
     case 145:
-      return MessageAddedEvent.fromList(self.readValue() as! [Any?])
+      return TokenEvent.fromList(self.readValue() as! [Any?])
     case 146:
-      return MessageUpdatedEvent.fromList(self.readValue() as! [Any?])
+      return ConversationAddedEvent.fromList(self.readValue() as! [Any?])
     case 147:
-      return TypingEvent.fromList(self.readValue() as! [Any?])
+      return ConversationUpdatedEvent.fromList(self.readValue() as! [Any?])
     case 148:
-      return UploadProgressEvent.fromList(self.readValue() as! [Any?])
+      return ConversationDeletedEvent.fromList(self.readValue() as! [Any?])
     case 149:
+      return ParticipantUpdatedEvent.fromList(self.readValue() as! [Any?])
+    case 150:
+      return MessageAddedEvent.fromList(self.readValue() as! [Any?])
+    case 151:
+      return MessageUpdatedEvent.fromList(self.readValue() as! [Any?])
+    case 152:
+      return TypingEvent.fromList(self.readValue() as! [Any?])
+    case 153:
+      return UploadProgressEvent.fromList(self.readValue() as! [Any?])
+    case 154:
       return ClientErrorEvent.fromList(self.readValue() as! [Any?])
     default:
       return super.readValue(ofType: type)
@@ -1002,47 +1161,62 @@ private class ConversationsApiPigeonCodecWriter: FlutterStandardWriter {
     } else if let value = value as? PlatformTokenEventType {
       super.writeByte(135)
       super.writeValue(value.rawValue)
-    } else if let value = value as? ClientData {
+    } else if let value = value as? PlatformConversationUpdateReason {
       super.writeByte(136)
-      super.writeValue(value.toList())
-    } else if let value = value as? ConversationData {
+      super.writeValue(value.rawValue)
+    } else if let value = value as? PlatformParticipantUpdateReason {
       super.writeByte(137)
-      super.writeValue(value.toList())
-    } else if let value = value as? MediaData {
+      super.writeValue(value.rawValue)
+    } else if let value = value as? ClientData {
       super.writeByte(138)
       super.writeValue(value.toList())
-    } else if let value = value as? MessageData {
+    } else if let value = value as? ConversationData {
       super.writeByte(139)
       super.writeValue(value.toList())
-    } else if let value = value as? ParticipantData {
+    } else if let value = value as? MediaData {
       super.writeByte(140)
       super.writeValue(value.toList())
-    } else if let value = value as? ConnectionStateEvent {
+    } else if let value = value as? MessageData {
       super.writeByte(141)
       super.writeValue(value.toList())
-    } else if let value = value as? SyncStatusEvent {
+    } else if let value = value as? ParticipantData {
       super.writeByte(142)
       super.writeValue(value.toList())
-    } else if let value = value as? TokenEvent {
+    } else if let value = value as? ConnectionStateEvent {
       super.writeByte(143)
       super.writeValue(value.toList())
-    } else if let value = value as? ConversationAddedEvent {
+    } else if let value = value as? SyncStatusEvent {
       super.writeByte(144)
       super.writeValue(value.toList())
-    } else if let value = value as? MessageAddedEvent {
+    } else if let value = value as? TokenEvent {
       super.writeByte(145)
       super.writeValue(value.toList())
-    } else if let value = value as? MessageUpdatedEvent {
+    } else if let value = value as? ConversationAddedEvent {
       super.writeByte(146)
       super.writeValue(value.toList())
-    } else if let value = value as? TypingEvent {
+    } else if let value = value as? ConversationUpdatedEvent {
       super.writeByte(147)
       super.writeValue(value.toList())
-    } else if let value = value as? UploadProgressEvent {
+    } else if let value = value as? ConversationDeletedEvent {
       super.writeByte(148)
       super.writeValue(value.toList())
-    } else if let value = value as? ClientErrorEvent {
+    } else if let value = value as? ParticipantUpdatedEvent {
       super.writeByte(149)
+      super.writeValue(value.toList())
+    } else if let value = value as? MessageAddedEvent {
+      super.writeByte(150)
+      super.writeValue(value.toList())
+    } else if let value = value as? MessageUpdatedEvent {
+      super.writeByte(151)
+      super.writeValue(value.toList())
+    } else if let value = value as? TypingEvent {
+      super.writeByte(152)
+      super.writeValue(value.toList())
+    } else if let value = value as? UploadProgressEvent {
+      super.writeByte(153)
+      super.writeValue(value.toList())
+    } else if let value = value as? ClientErrorEvent {
+      super.writeByte(154)
       super.writeValue(value.toList())
     } else {
       super.writeValue(value)
@@ -1085,6 +1259,8 @@ protocol ConversationsHostApi {
   func getLastMessages(conversationSid: String, count: Int64) async throws -> [MessageData]
   func getUnreadMessagesCount(conversationSid: String) async throws -> Int64?
   func setLastReadMessageIndex(conversationSid: String, index: Int64) async throws -> Int64?
+  func advanceLastReadMessageIndex(conversationSid: String, index: Int64) async throws -> Int64?
+  func setAllMessagesRead(conversationSid: String) async throws -> Int64?
   func sendText(conversationSid: String, body: String) async throws -> MessageData
   /// Progress arrives as [UploadProgressEvent]s carrying [uploadId].
   func sendMedia(conversationSid: String, uploadId: String, filePath: String, contentType: String, filename: String?) async throws -> MessageData
@@ -1339,6 +1515,41 @@ class ConversationsHostApiSetup {
       }
     } else {
       setLastReadMessageIndexChannel.setMessageHandler(nil)
+    }
+    let advanceLastReadMessageIndexChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_twilio_conversations_client.ConversationsHostApi.advanceLastReadMessageIndex\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      advanceLastReadMessageIndexChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let conversationSidArg = args[0] as! String
+        let indexArg = args[1] as! Int64
+        Task { @MainActor in
+          do {
+            let result = try await api.advanceLastReadMessageIndex(conversationSid: conversationSidArg, index: indexArg)
+            reply(wrapResult(result))
+          } catch {
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      advanceLastReadMessageIndexChannel.setMessageHandler(nil)
+    }
+    let setAllMessagesReadChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_twilio_conversations_client.ConversationsHostApi.setAllMessagesRead\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      setAllMessagesReadChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let conversationSidArg = args[0] as! String
+        Task { @MainActor in
+          do {
+            let result = try await api.setAllMessagesRead(conversationSid: conversationSidArg)
+            reply(wrapResult(result))
+          } catch {
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      setAllMessagesReadChannel.setMessageHandler(nil)
     }
     let sendTextChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_twilio_conversations_client.ConversationsHostApi.sendText\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {

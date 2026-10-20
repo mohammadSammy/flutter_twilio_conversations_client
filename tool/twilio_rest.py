@@ -14,6 +14,11 @@ Usage:
         Creates <count> conversations with <identity> in each (criterion B1).
     python3 tool/twilio_rest.py send <conversation-sid> <body-prefix>
         Sends three messages, <body-prefix>-1 to -3, from "poc-sender" (criteria E1, E2).
+    python3 tool/twilio_rest.py read <conversation-sid> <identity> <index>
+        Sets <identity>'s last read message index, adding it as a participant if needed,
+        the way another device or another person reading would (update events test).
+    python3 tool/twilio_rest.py remove <conversation-sid> <identity>
+        Removes <identity> from the conversation (update events test).
 """
 
 import base64
@@ -66,6 +71,24 @@ def send(conversation_sid, prefix):
     print(f"sent {prefix}-1..3 to {conversation_sid}")
 
 
+def participant_sid(conversation_sid, identity):
+    page = call("GET", f"/Conversations/{conversation_sid}/Participants?PageSize=100")
+    return next((p["sid"] for p in page["participants"] if p["identity"] == identity), None)
+
+
+def read(conversation_sid, identity, index):
+    sid = participant_sid(conversation_sid, identity)
+    if sid is None:
+        sid = call("POST", f"/Conversations/{conversation_sid}/Participants", {"Identity": identity})["sid"]
+    call("POST", f"/Conversations/{conversation_sid}/Participants/{sid}", {"LastReadMessageIndex": index})
+    print(f"{identity} read up to {index} in {conversation_sid}")
+
+
+def remove(conversation_sid, identity):
+    call("DELETE", f"/Conversations/{conversation_sid}/Participants/{participant_sid(conversation_sid, identity)}")
+    print(f"removed {identity} from {conversation_sid}")
+
+
 if __name__ == "__main__":
     if len(sys.argv) == 3 and sys.argv[1] == "removed-conversation":
         removed_conversation(sys.argv[2])
@@ -75,5 +98,9 @@ if __name__ == "__main__":
         conversations(sys.argv[2], int(sys.argv[3]))
     elif len(sys.argv) == 4 and sys.argv[1] == "send":
         send(sys.argv[2], sys.argv[3])
+    elif len(sys.argv) == 5 and sys.argv[1] == "read":
+        read(sys.argv[2], sys.argv[3], int(sys.argv[4]))
+    elif len(sys.argv) == 4 and sys.argv[1] == "remove":
+        remove(sys.argv[2], sys.argv[3])
     else:
         sys.exit(__doc__)

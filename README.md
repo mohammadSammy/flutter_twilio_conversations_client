@@ -2,7 +2,7 @@
 
 An **unofficial** Flutter plugin for [Twilio Conversations](https://www.twilio.com/docs/conversations-classic), wrapping Twilio's native iOS and Android Conversations SDKs behind a typed Dart API.
 
-> **Status: 0.1.2, not on pub.dev yet.** The first-release API works on iOS and Android. It is tested on real phones against the proof-of-concept criteria; see [the results](docs/poc-results.md).
+> **Status: 0.1.3, not on pub.dev yet.** The first-release API works on iOS and Android. It is tested on real phones against the proof-of-concept criteria; see [the results](docs/poc-results.md).
 
 ## Installation
 
@@ -13,7 +13,7 @@ dependencies:
   flutter_twilio_conversations_client:
     git:
       url: https://github.com/mohammadSammy/flutter_twilio_conversations_client.git
-      ref: v0.1.2
+      ref: v0.1.3
 ```
 
 iOS needs Swift Package Manager. Twilio stopped publishing its SDK through CocoaPods, so this plugin supports Swift Package Manager only. Turn it on for your app in `pubspec.yaml`:
@@ -72,6 +72,8 @@ The Twilio Conversations service needs an APNs and/or FCM credential with push t
 ## Good to know
 
 - **Token lifetime:** with a `tokenProvider`, the client renews the token when Twilio warns it's about to expire, which is 3 minutes before. Use tokens that last well over 5 minutes; an hour is typical. Shorter tokens are renewed too late, and the connection drops at each expiry.
+- **Read state and unread badges:** listen for `ConversationUpdated`. It reports changes to a conversation's `lastReadMessageIndex` (including reads on another device) and `lastMessageIndex` as they happen. `getUnreadMessagesCount` is "semi-real-time": Twilio caches it for 5 seconds. After marking messages read, use the count that `setLastReadMessageIndex`, `advanceLastReadMessageIndex` or `setAllMessagesRead` returns. `ParticipantUpdated` reports other people reading, for read receipts.
+- **Removed or deleted conversations** arrive as `ConversationDeleted`.
 - **Place messages by `index`:** when many messages are sent at once, `MessageAdded` events can arrive out of index order. Each still arrives exactly once. `getLastMessages` and `getMessagesBefore` always return index order.
 - **After a network drop,** the connection state can be `error` (Android) or `fatalError` (iOS). The client still reconnects on its own when the network returns.
 - **Android can cut a background app's network,** for example during a phone call or with the screen off. An upload in progress then fails with `MediaUploadException`, and the client reconnects when the app comes back.

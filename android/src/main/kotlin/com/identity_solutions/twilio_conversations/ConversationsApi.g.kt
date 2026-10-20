@@ -288,6 +288,37 @@ enum class PlatformTokenEventType(val raw: Int) {
   }
 }
 
+/** What changed on a conversation (both SDKs report the same reasons). */
+enum class PlatformConversationUpdateReason(val raw: Int) {
+  STATUS(0),
+  LAST_READ_MESSAGE_INDEX(1),
+  UNIQUE_NAME(2),
+  FRIENDLY_NAME(3),
+  ATTRIBUTES(4),
+  LAST_MESSAGE(5),
+  NOTIFICATION_LEVEL(6),
+  STATE(7);
+
+  companion object {
+    fun ofRaw(raw: Int): PlatformConversationUpdateReason? {
+      return values().firstOrNull { it.raw == raw }
+    }
+  }
+}
+
+/** What changed on a participant. */
+enum class PlatformParticipantUpdateReason(val raw: Int) {
+  LAST_READ_MESSAGE_INDEX(0),
+  LAST_READ_TIMESTAMP(1),
+  ATTRIBUTES(2);
+
+  companion object {
+    fun ofRaw(raw: Int): PlatformParticipantUpdateReason? {
+      return values().firstOrNull { it.raw == raw }
+    }
+  }
+}
+
 /** Generated class from Pigeon that represents data sent in messages. */
 data class ClientData (
   val myIdentity: String,
@@ -737,6 +768,133 @@ data class ConversationAddedEvent (
 }
 
 /** Generated class from Pigeon that represents data sent in messages. */
+data class ConversationUpdatedEvent (
+  val conversation: ConversationData,
+  val reason: PlatformConversationUpdateReason
+) : PlatformEvent()
+ {
+  companion object {
+    fun fromList(pigeonVar_list: List<Any?>): ConversationUpdatedEvent {
+      val conversation = pigeonVar_list[0] as ConversationData
+      val reason = pigeonVar_list[1] as PlatformConversationUpdateReason
+      return ConversationUpdatedEvent(conversation, reason)
+    }
+  }
+  fun toList(): List<Any?> {
+    return listOf(
+      conversation,
+      reason,
+    )
+  }
+  override fun equals(other: Any?): Boolean {
+    if (other == null || other.javaClass != javaClass) {
+      return false
+    }
+    if (this === other) {
+      return true
+    }
+    val other = other as ConversationUpdatedEvent
+    return ConversationsApiPigeonUtils.deepEquals(this.conversation, other.conversation) && ConversationsApiPigeonUtils.deepEquals(this.reason, other.reason)
+  }
+
+  override fun hashCode(): Int {
+    var result = javaClass.hashCode()
+    result = 31 * result + ConversationsApiPigeonUtils.deepHash(this.conversation)
+    result = 31 * result + ConversationsApiPigeonUtils.deepHash(this.reason)
+    return result
+  }
+  override fun toString(): String {
+    return "ConversationUpdatedEvent(conversation=$conversation, reason=$reason)"
+  }
+}
+
+/**
+ * The current user left or was removed, or the conversation was closed or deleted.
+ *
+ * Generated class from Pigeon that represents data sent in messages.
+ */
+data class ConversationDeletedEvent (
+  val conversationSid: String
+) : PlatformEvent()
+ {
+  companion object {
+    fun fromList(pigeonVar_list: List<Any?>): ConversationDeletedEvent {
+      val conversationSid = pigeonVar_list[0] as String
+      return ConversationDeletedEvent(conversationSid)
+    }
+  }
+  fun toList(): List<Any?> {
+    return listOf(
+      conversationSid,
+    )
+  }
+  override fun equals(other: Any?): Boolean {
+    if (other == null || other.javaClass != javaClass) {
+      return false
+    }
+    if (this === other) {
+      return true
+    }
+    val other = other as ConversationDeletedEvent
+    return ConversationsApiPigeonUtils.deepEquals(this.conversationSid, other.conversationSid)
+  }
+
+  override fun hashCode(): Int {
+    var result = javaClass.hashCode()
+    result = 31 * result + ConversationsApiPigeonUtils.deepHash(this.conversationSid)
+    return result
+  }
+  override fun toString(): String {
+    return "ConversationDeletedEvent(conversationSid=$conversationSid)"
+  }
+}
+
+/** Generated class from Pigeon that represents data sent in messages. */
+data class ParticipantUpdatedEvent (
+  val conversationSid: String,
+  val participant: ParticipantData,
+  val reason: PlatformParticipantUpdateReason
+) : PlatformEvent()
+ {
+  companion object {
+    fun fromList(pigeonVar_list: List<Any?>): ParticipantUpdatedEvent {
+      val conversationSid = pigeonVar_list[0] as String
+      val participant = pigeonVar_list[1] as ParticipantData
+      val reason = pigeonVar_list[2] as PlatformParticipantUpdateReason
+      return ParticipantUpdatedEvent(conversationSid, participant, reason)
+    }
+  }
+  fun toList(): List<Any?> {
+    return listOf(
+      conversationSid,
+      participant,
+      reason,
+    )
+  }
+  override fun equals(other: Any?): Boolean {
+    if (other == null || other.javaClass != javaClass) {
+      return false
+    }
+    if (this === other) {
+      return true
+    }
+    val other = other as ParticipantUpdatedEvent
+    return ConversationsApiPigeonUtils.deepEquals(this.conversationSid, other.conversationSid) && ConversationsApiPigeonUtils.deepEquals(this.participant, other.participant) && ConversationsApiPigeonUtils.deepEquals(this.reason, other.reason)
+  }
+
+  override fun hashCode(): Int {
+    var result = javaClass.hashCode()
+    result = 31 * result + ConversationsApiPigeonUtils.deepHash(this.conversationSid)
+    result = 31 * result + ConversationsApiPigeonUtils.deepHash(this.participant)
+    result = 31 * result + ConversationsApiPigeonUtils.deepHash(this.reason)
+    return result
+  }
+  override fun toString(): String {
+    return "ParticipantUpdatedEvent(conversationSid=$conversationSid, participant=$participant, reason=$reason)"
+  }
+}
+
+/** Generated class from Pigeon that represents data sent in messages. */
 data class MessageAddedEvent (
   val message: MessageData,
   val conversation: ConversationData
@@ -987,71 +1145,96 @@ private open class ConversationsApiPigeonCodec : StandardMessageCodec() {
         }
       }
       136.toByte() -> {
-        return (readValue(buffer) as? List<Any?>)?.let {
-          ClientData.fromList(it)
+        return (readValue(buffer) as Long?)?.let {
+          PlatformConversationUpdateReason.ofRaw(it.toInt())
         }
       }
       137.toByte() -> {
-        return (readValue(buffer) as? List<Any?>)?.let {
-          ConversationData.fromList(it)
+        return (readValue(buffer) as Long?)?.let {
+          PlatformParticipantUpdateReason.ofRaw(it.toInt())
         }
       }
       138.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          MediaData.fromList(it)
+          ClientData.fromList(it)
         }
       }
       139.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          MessageData.fromList(it)
+          ConversationData.fromList(it)
         }
       }
       140.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          ParticipantData.fromList(it)
+          MediaData.fromList(it)
         }
       }
       141.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          ConnectionStateEvent.fromList(it)
+          MessageData.fromList(it)
         }
       }
       142.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          SyncStatusEvent.fromList(it)
+          ParticipantData.fromList(it)
         }
       }
       143.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          TokenEvent.fromList(it)
+          ConnectionStateEvent.fromList(it)
         }
       }
       144.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          ConversationAddedEvent.fromList(it)
+          SyncStatusEvent.fromList(it)
         }
       }
       145.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          MessageAddedEvent.fromList(it)
+          TokenEvent.fromList(it)
         }
       }
       146.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          MessageUpdatedEvent.fromList(it)
+          ConversationAddedEvent.fromList(it)
         }
       }
       147.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          TypingEvent.fromList(it)
+          ConversationUpdatedEvent.fromList(it)
         }
       }
       148.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          UploadProgressEvent.fromList(it)
+          ConversationDeletedEvent.fromList(it)
         }
       }
       149.toByte() -> {
+        return (readValue(buffer) as? List<Any?>)?.let {
+          ParticipantUpdatedEvent.fromList(it)
+        }
+      }
+      150.toByte() -> {
+        return (readValue(buffer) as? List<Any?>)?.let {
+          MessageAddedEvent.fromList(it)
+        }
+      }
+      151.toByte() -> {
+        return (readValue(buffer) as? List<Any?>)?.let {
+          MessageUpdatedEvent.fromList(it)
+        }
+      }
+      152.toByte() -> {
+        return (readValue(buffer) as? List<Any?>)?.let {
+          TypingEvent.fromList(it)
+        }
+      }
+      153.toByte() -> {
+        return (readValue(buffer) as? List<Any?>)?.let {
+          UploadProgressEvent.fromList(it)
+        }
+      }
+      154.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
           ClientErrorEvent.fromList(it)
         }
@@ -1089,60 +1272,80 @@ private open class ConversationsApiPigeonCodec : StandardMessageCodec() {
         stream.write(135)
         writeValue(stream, value.raw.toLong())
       }
-      is ClientData -> {
+      is PlatformConversationUpdateReason -> {
         stream.write(136)
-        writeValue(stream, value.toList())
+        writeValue(stream, value.raw.toLong())
       }
-      is ConversationData -> {
+      is PlatformParticipantUpdateReason -> {
         stream.write(137)
-        writeValue(stream, value.toList())
+        writeValue(stream, value.raw.toLong())
       }
-      is MediaData -> {
+      is ClientData -> {
         stream.write(138)
         writeValue(stream, value.toList())
       }
-      is MessageData -> {
+      is ConversationData -> {
         stream.write(139)
         writeValue(stream, value.toList())
       }
-      is ParticipantData -> {
+      is MediaData -> {
         stream.write(140)
         writeValue(stream, value.toList())
       }
-      is ConnectionStateEvent -> {
+      is MessageData -> {
         stream.write(141)
         writeValue(stream, value.toList())
       }
-      is SyncStatusEvent -> {
+      is ParticipantData -> {
         stream.write(142)
         writeValue(stream, value.toList())
       }
-      is TokenEvent -> {
+      is ConnectionStateEvent -> {
         stream.write(143)
         writeValue(stream, value.toList())
       }
-      is ConversationAddedEvent -> {
+      is SyncStatusEvent -> {
         stream.write(144)
         writeValue(stream, value.toList())
       }
-      is MessageAddedEvent -> {
+      is TokenEvent -> {
         stream.write(145)
         writeValue(stream, value.toList())
       }
-      is MessageUpdatedEvent -> {
+      is ConversationAddedEvent -> {
         stream.write(146)
         writeValue(stream, value.toList())
       }
-      is TypingEvent -> {
+      is ConversationUpdatedEvent -> {
         stream.write(147)
         writeValue(stream, value.toList())
       }
-      is UploadProgressEvent -> {
+      is ConversationDeletedEvent -> {
         stream.write(148)
         writeValue(stream, value.toList())
       }
-      is ClientErrorEvent -> {
+      is ParticipantUpdatedEvent -> {
         stream.write(149)
+        writeValue(stream, value.toList())
+      }
+      is MessageAddedEvent -> {
+        stream.write(150)
+        writeValue(stream, value.toList())
+      }
+      is MessageUpdatedEvent -> {
+        stream.write(151)
+        writeValue(stream, value.toList())
+      }
+      is TypingEvent -> {
+        stream.write(152)
+        writeValue(stream, value.toList())
+      }
+      is UploadProgressEvent -> {
+        stream.write(153)
+        writeValue(stream, value.toList())
+      }
+      is ClientErrorEvent -> {
+        stream.write(154)
         writeValue(stream, value.toList())
       }
       else -> super.writeValue(stream, value)
@@ -1173,6 +1376,8 @@ interface ConversationsHostApi {
   suspend fun getLastMessages(conversationSid: String, count: Long): List<MessageData>
   suspend fun getUnreadMessagesCount(conversationSid: String): Long?
   suspend fun setLastReadMessageIndex(conversationSid: String, index: Long): Long?
+  suspend fun advanceLastReadMessageIndex(conversationSid: String, index: Long): Long?
+  suspend fun setAllMessagesRead(conversationSid: String): Long?
   suspend fun sendText(conversationSid: String, body: String): MessageData
   /** Progress arrives as [UploadProgressEvent]s carrying [uploadId]. */
   suspend fun sendMedia(conversationSid: String, uploadId: String, filePath: String, contentType: String, filename: String?): MessageData
@@ -1451,6 +1656,45 @@ interface ConversationsHostApi {
             CoroutineScope(Dispatchers.Main).launch {
               val wrapped: List<Any?> = try {
                 listOf(api.setLastReadMessageIndex(conversationSidArg, indexArg))
+              } catch (exception: Throwable) {
+                ConversationsApiPigeonUtils.wrapError(exception)
+              }
+              reply.reply(wrapped)
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_twilio_conversations_client.ConversationsHostApi.advanceLastReadMessageIndex$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val conversationSidArg = args[0] as String
+            val indexArg = args[1] as Long
+            CoroutineScope(Dispatchers.Main).launch {
+              val wrapped: List<Any?> = try {
+                listOf(api.advanceLastReadMessageIndex(conversationSidArg, indexArg))
+              } catch (exception: Throwable) {
+                ConversationsApiPigeonUtils.wrapError(exception)
+              }
+              reply.reply(wrapped)
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_twilio_conversations_client.ConversationsHostApi.setAllMessagesRead$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val conversationSidArg = args[0] as String
+            CoroutineScope(Dispatchers.Main).launch {
+              val wrapped: List<Any?> = try {
+                listOf(api.setAllMessagesRead(conversationSidArg))
               } catch (exception: Throwable) {
                 ConversationsApiPigeonUtils.wrapError(exception)
               }

@@ -145,6 +145,25 @@ enum PlatformTokenEventType {
   expired;
 }
 
+/// What changed on a conversation (both SDKs report the same reasons).
+enum PlatformConversationUpdateReason {
+  status,
+  lastReadMessageIndex,
+  uniqueName,
+  friendlyName,
+  attributes,
+  lastMessage,
+  notificationLevel,
+  state;
+}
+
+/// What changed on a participant.
+enum PlatformParticipantUpdateReason {
+  lastReadMessageIndex,
+  lastReadTimestamp,
+  attributes;
+}
+
 class ClientData {
   ClientData({
     required this.myIdentity,
@@ -689,6 +708,157 @@ class ConversationAddedEvent extends PlatformEvent {
   }
 }
 
+class ConversationUpdatedEvent extends PlatformEvent {
+  ConversationUpdatedEvent({
+    required this.conversation,
+    required this.reason,
+  });
+
+  ConversationData conversation;
+
+  PlatformConversationUpdateReason reason;
+
+  List<Object?> _toList() {
+    return <Object?>[
+      conversation,
+      reason,
+    ];
+  }
+
+  Object encode() {
+    return _toList();  }
+
+  static ConversationUpdatedEvent decode(Object result) {
+    result as List<Object?>;
+    return ConversationUpdatedEvent(
+      conversation: result[0]! as ConversationData,
+      reason: result[1]! as PlatformConversationUpdateReason,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! ConversationUpdatedEvent || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(conversation, other.conversation) && _deepEquals(reason, other.reason);
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => _deepHash(<Object?>[runtimeType, ..._toList()]);
+
+  @override
+  String toString() {
+    return 'ConversationUpdatedEvent(conversation: $conversation, reason: $reason)';
+  }
+}
+
+/// The current user left or was removed, or the conversation was closed or deleted.
+class ConversationDeletedEvent extends PlatformEvent {
+  ConversationDeletedEvent({
+    required this.conversationSid,
+  });
+
+  String conversationSid;
+
+  List<Object?> _toList() {
+    return <Object?>[
+      conversationSid,
+    ];
+  }
+
+  Object encode() {
+    return _toList();  }
+
+  static ConversationDeletedEvent decode(Object result) {
+    result as List<Object?>;
+    return ConversationDeletedEvent(
+      conversationSid: result[0]! as String,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! ConversationDeletedEvent || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(conversationSid, other.conversationSid);
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => _deepHash(<Object?>[runtimeType, ..._toList()]);
+
+  @override
+  String toString() {
+    return 'ConversationDeletedEvent(conversationSid: $conversationSid)';
+  }
+}
+
+class ParticipantUpdatedEvent extends PlatformEvent {
+  ParticipantUpdatedEvent({
+    required this.conversationSid,
+    required this.participant,
+    required this.reason,
+  });
+
+  String conversationSid;
+
+  ParticipantData participant;
+
+  PlatformParticipantUpdateReason reason;
+
+  List<Object?> _toList() {
+    return <Object?>[
+      conversationSid,
+      participant,
+      reason,
+    ];
+  }
+
+  Object encode() {
+    return _toList();  }
+
+  static ParticipantUpdatedEvent decode(Object result) {
+    result as List<Object?>;
+    return ParticipantUpdatedEvent(
+      conversationSid: result[0]! as String,
+      participant: result[1]! as ParticipantData,
+      reason: result[2]! as PlatformParticipantUpdateReason,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! ParticipantUpdatedEvent || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(conversationSid, other.conversationSid) && _deepEquals(participant, other.participant) && _deepEquals(reason, other.reason);
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => _deepHash(<Object?>[runtimeType, ..._toList()]);
+
+  @override
+  String toString() {
+    return 'ParticipantUpdatedEvent(conversationSid: $conversationSid, participant: $participant, reason: $reason)';
+  }
+}
+
 class MessageAddedEvent extends PlatformEvent {
   MessageAddedEvent({
     required this.message,
@@ -978,47 +1148,62 @@ class _PigeonCodec extends StandardMessageCodec {
     }    else if (value is PlatformTokenEventType) {
       buffer.putUint8(135);
       writeValue(buffer, value.index);
-    }    else if (value is ClientData) {
+    }    else if (value is PlatformConversationUpdateReason) {
       buffer.putUint8(136);
-      writeValue(buffer, value.encode());
-    }    else if (value is ConversationData) {
+      writeValue(buffer, value.index);
+    }    else if (value is PlatformParticipantUpdateReason) {
       buffer.putUint8(137);
-      writeValue(buffer, value.encode());
-    }    else if (value is MediaData) {
+      writeValue(buffer, value.index);
+    }    else if (value is ClientData) {
       buffer.putUint8(138);
       writeValue(buffer, value.encode());
-    }    else if (value is MessageData) {
+    }    else if (value is ConversationData) {
       buffer.putUint8(139);
       writeValue(buffer, value.encode());
-    }    else if (value is ParticipantData) {
+    }    else if (value is MediaData) {
       buffer.putUint8(140);
       writeValue(buffer, value.encode());
-    }    else if (value is ConnectionStateEvent) {
+    }    else if (value is MessageData) {
       buffer.putUint8(141);
       writeValue(buffer, value.encode());
-    }    else if (value is SyncStatusEvent) {
+    }    else if (value is ParticipantData) {
       buffer.putUint8(142);
       writeValue(buffer, value.encode());
-    }    else if (value is TokenEvent) {
+    }    else if (value is ConnectionStateEvent) {
       buffer.putUint8(143);
       writeValue(buffer, value.encode());
-    }    else if (value is ConversationAddedEvent) {
+    }    else if (value is SyncStatusEvent) {
       buffer.putUint8(144);
       writeValue(buffer, value.encode());
-    }    else if (value is MessageAddedEvent) {
+    }    else if (value is TokenEvent) {
       buffer.putUint8(145);
       writeValue(buffer, value.encode());
-    }    else if (value is MessageUpdatedEvent) {
+    }    else if (value is ConversationAddedEvent) {
       buffer.putUint8(146);
       writeValue(buffer, value.encode());
-    }    else if (value is TypingEvent) {
+    }    else if (value is ConversationUpdatedEvent) {
       buffer.putUint8(147);
       writeValue(buffer, value.encode());
-    }    else if (value is UploadProgressEvent) {
+    }    else if (value is ConversationDeletedEvent) {
       buffer.putUint8(148);
       writeValue(buffer, value.encode());
-    }    else if (value is ClientErrorEvent) {
+    }    else if (value is ParticipantUpdatedEvent) {
       buffer.putUint8(149);
+      writeValue(buffer, value.encode());
+    }    else if (value is MessageAddedEvent) {
+      buffer.putUint8(150);
+      writeValue(buffer, value.encode());
+    }    else if (value is MessageUpdatedEvent) {
+      buffer.putUint8(151);
+      writeValue(buffer, value.encode());
+    }    else if (value is TypingEvent) {
+      buffer.putUint8(152);
+      writeValue(buffer, value.encode());
+    }    else if (value is UploadProgressEvent) {
+      buffer.putUint8(153);
+      writeValue(buffer, value.encode());
+    }    else if (value is ClientErrorEvent) {
+      buffer.putUint8(154);
       writeValue(buffer, value.encode());
     } else {
       super.writeValue(buffer, value);
@@ -1050,32 +1235,44 @@ class _PigeonCodec extends StandardMessageCodec {
         final value = readValue(buffer) as int?;
         return value == null ? null : PlatformTokenEventType.values[value];
       case 136:
-        return ClientData.decode(readValue(buffer)!);
+        final value = readValue(buffer) as int?;
+        return value == null ? null : PlatformConversationUpdateReason.values[value];
       case 137:
-        return ConversationData.decode(readValue(buffer)!);
+        final value = readValue(buffer) as int?;
+        return value == null ? null : PlatformParticipantUpdateReason.values[value];
       case 138:
-        return MediaData.decode(readValue(buffer)!);
+        return ClientData.decode(readValue(buffer)!);
       case 139:
-        return MessageData.decode(readValue(buffer)!);
+        return ConversationData.decode(readValue(buffer)!);
       case 140:
-        return ParticipantData.decode(readValue(buffer)!);
+        return MediaData.decode(readValue(buffer)!);
       case 141:
-        return ConnectionStateEvent.decode(readValue(buffer)!);
+        return MessageData.decode(readValue(buffer)!);
       case 142:
-        return SyncStatusEvent.decode(readValue(buffer)!);
+        return ParticipantData.decode(readValue(buffer)!);
       case 143:
-        return TokenEvent.decode(readValue(buffer)!);
+        return ConnectionStateEvent.decode(readValue(buffer)!);
       case 144:
-        return ConversationAddedEvent.decode(readValue(buffer)!);
+        return SyncStatusEvent.decode(readValue(buffer)!);
       case 145:
-        return MessageAddedEvent.decode(readValue(buffer)!);
+        return TokenEvent.decode(readValue(buffer)!);
       case 146:
-        return MessageUpdatedEvent.decode(readValue(buffer)!);
+        return ConversationAddedEvent.decode(readValue(buffer)!);
       case 147:
-        return TypingEvent.decode(readValue(buffer)!);
+        return ConversationUpdatedEvent.decode(readValue(buffer)!);
       case 148:
-        return UploadProgressEvent.decode(readValue(buffer)!);
+        return ConversationDeletedEvent.decode(readValue(buffer)!);
       case 149:
+        return ParticipantUpdatedEvent.decode(readValue(buffer)!);
+      case 150:
+        return MessageAddedEvent.decode(readValue(buffer)!);
+      case 151:
+        return MessageUpdatedEvent.decode(readValue(buffer)!);
+      case 152:
+        return TypingEvent.decode(readValue(buffer)!);
+      case 153:
+        return UploadProgressEvent.decode(readValue(buffer)!);
+      case 154:
         return ClientErrorEvent.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);
@@ -1355,6 +1552,44 @@ class ConversationsHostApi {
       binaryMessenger: pigeonVar_binaryMessenger,
     );
     final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[conversationSid, index]);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: true,
+    )
+    ;
+    return pigeonVar_replyValue as int?;
+  }
+
+  Future<int?> advanceLastReadMessageIndex(String conversationSid, int index) async {
+    final pigeonVar_channelName = 'dev.flutter.pigeon.flutter_twilio_conversations_client.ConversationsHostApi.advanceLastReadMessageIndex$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[conversationSid, index]);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: true,
+    )
+    ;
+    return pigeonVar_replyValue as int?;
+  }
+
+  Future<int?> setAllMessagesRead(String conversationSid) async {
+    final pigeonVar_channelName = 'dev.flutter.pigeon.flutter_twilio_conversations_client.ConversationsHostApi.setAllMessagesRead$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[conversationSid]);
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(

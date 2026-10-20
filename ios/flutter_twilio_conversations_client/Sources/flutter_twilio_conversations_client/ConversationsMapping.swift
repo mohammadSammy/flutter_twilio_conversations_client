@@ -132,6 +132,34 @@ extension TCHClientSynchronizationStatus {
   }
 }
 
+extension TCHConversationUpdate {
+  /// nil for a reason a newer SDK adds; the plugin then skips the event.
+  var platform: PlatformConversationUpdateReason? {
+    switch self {
+    case .status: return .status
+    case .lastReadMessageIndex: return .lastReadMessageIndex
+    case .uniqueName: return .uniqueName
+    case .friendlyName: return .friendlyName
+    case .attributes: return .attributes
+    case .lastMessage: return .lastMessage
+    case .userNotificationLevel: return .notificationLevel
+    case .state: return .state
+    @unknown default: return nil
+    }
+  }
+}
+
+extension TCHParticipantUpdate {
+  var platform: PlatformParticipantUpdateReason? {
+    switch self {
+    case .lastReadMessageIndex: return .lastReadMessageIndex
+    case .lastReadTimestamp: return .lastReadTimestamp
+    case .attributes: return .attributes
+    @unknown default: return nil
+    }
+  }
+}
+
 extension PlatformLogLevel {
   var twilio: TCHLogLevel {
     switch self {

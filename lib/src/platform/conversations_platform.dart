@@ -29,6 +29,8 @@ abstract interface class ConversationsPlatform {
   Future<List<MessageData>> getLastMessages(String conversationSid, int count);
   Future<int?> getUnreadMessagesCount(String conversationSid);
   Future<int?> setLastReadMessageIndex(String conversationSid, int index);
+  Future<int?> advanceLastReadMessageIndex(String conversationSid, int index);
+  Future<int?> setAllMessagesRead(String conversationSid);
   Future<MessageData> sendText(String conversationSid, String body);
   Future<MessageData> sendMedia(
     String conversationSid,

@@ -118,6 +118,42 @@ void main() {
       expect((events[2] as ClientErrorOccurred).error.twilioCode, 42);
     });
 
+    test('conversation and participant changes arrive with their reason', () async {
+      final client = await connect();
+      final events = <ConversationsEvent>[];
+      client.events.listen(events.add);
+
+      platform.emit(
+        ConversationUpdatedEvent(
+          conversation: conversationData(),
+          reason: PlatformConversationUpdateReason.lastReadMessageIndex,
+        ),
+      );
+      platform.emit(ConversationDeletedEvent(conversationSid: 'CH1'));
+      platform.emit(
+        ParticipantUpdatedEvent(
+          conversationSid: 'CH1',
+          participant: ParticipantData(sid: 'MB1', lastReadMessageIndex: 7),
+          reason: PlatformParticipantUpdateReason.lastReadMessageIndex,
+        ),
+      );
+      await pumpEventQueue();
+
+      expect(
+        events[0],
+        isA<ConversationUpdated>()
+            .having((e) => e.reason, 'reason', ConversationUpdateReason.lastReadMessageIndex)
+            .having((e) => e.conversation.status, 'status', ConversationStatus.joined),
+      );
+      expect(events[1], isA<ConversationDeleted>().having((e) => e.conversationSid, 'sid', 'CH1'));
+      expect(
+        events[2],
+        isA<ParticipantUpdated>()
+            .having((e) => e.reason, 'reason', ParticipantUpdateReason.lastReadMessageIndex)
+            .having((e) => e.participant.lastReadMessageIndex, 'read', 7),
+      );
+    });
+
     test('waitUntilSynced completes on completed and throws on failed', () async {
       final client = await connect();
       final synced = client.waitUntilSynced();
@@ -387,6 +423,13 @@ final class FakePlatform implements ConversationsPlatform {
   @override
   Future<int?> setLastReadMessageIndex(String conversationSid, int index) =>
       _answer('setLastReadMessageIndex', () => 0);
+
+  @override
+  Future<int?> advanceLastReadMessageIndex(String conversationSid, int index) =>
+      _answer('advanceLastReadMessageIndex', () => 0);
+
+  @override
+  Future<int?> setAllMessagesRead(String conversationSid) => _answer('setAllMessagesRead', () => 0);
 
   @override
   Future<MessageData> sendText(String conversationSid, String body) => _answer('sendText', messageData);

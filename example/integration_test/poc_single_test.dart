@@ -698,4 +698,90 @@ void main() {
     skip: notNamed('D3'),
     timeout: const Timeout(Duration(minutes: 30)),
   );
+
+  // Not a criterion: checks the conversation and participant update events and the read calls
+  // added in 0.1.3. Needs the Mac to act as another device and another person: it runs every
+  // `POC-REST <args>` line through `python3 tool/twilio_rest.py <args>`.
+  testWidgets('U1 conversation and participant updates', (tester) async {
+    await withClient('$run-u1', (client, log) async {
+      final me = client.myIdentity;
+      final other = '$run-u1-other';
+      final conversation = await client.createConversation(uniqueName: '$run-u1');
+      await client.join(conversation.sid);
+      final sid = conversation.sid;
+      final results = <String, Object?>{};
+
+      Future<T> next<T extends ConversationsEvent>(bool Function(T) test) {
+        final mark = log.events.length;
+        return log.waitFor<T>((e) => log.events.indexOf(e) >= mark && test(e));
+      }
+
+      // Sending updates the last message.
+      final lastMessage = next<ConversationUpdated>(
+        (e) =>
+            e.conversation.sid == sid &&
+            e.reason == ConversationUpdateReason.lastMessage &&
+            e.conversation.lastMessageIndex == 2,
+      );
+      for (var i = 0; i < 3; i++) {
+        await client.sendText(sid, 'u1 $i');
+      }
+      results['lastMessageIndex'] = (await lastMessage).conversation.lastMessageIndex;
+
+      // Reading here: the event carries the new read index; advancing never moves it back.
+      var read = next<ConversationUpdated>(
+        (e) => e.reason == ConversationUpdateReason.lastReadMessageIndex && e.conversation.lastReadMessageIndex == 1,
+      );
+      results['unreadAfterAdvanceTo1'] = await client.advanceLastReadMessageIndex(sid, 1);
+      results['readEventAfterAdvance'] = (await read).conversation.lastReadMessageIndex;
+      try {
+        await client.advanceLastReadMessageIndex(sid, 0);
+        results['advanceBackTo0'] = 'ignored';
+      } on ConversationsException catch (e) {
+        results['advanceBackTo0'] = '${e.runtimeType}: ${e.message}';
+      }
+      results['readIndexAfterAdvanceBackTo0'] = (await client.getConversation(sid)).lastReadMessageIndex;
+      read = next<ConversationUpdated>(
+        (e) => e.reason == ConversationUpdateReason.lastReadMessageIndex && e.conversation.lastReadMessageIndex == 2,
+      );
+      results['unreadAfterSetAllRead'] = await client.setAllMessagesRead(sid);
+      results['readEventAfterSetAllRead'] = (await read).conversation.lastReadMessageIndex;
+
+      // Reading on another device: the Mac moves this identity's read index back to 0.
+      read = next<ConversationUpdated>(
+        (e) => e.reason == ConversationUpdateReason.lastReadMessageIndex && e.conversation.lastReadMessageIndex == 0,
+      );
+      debugPrint('POC-REST read $sid $me 0');
+      results['readEventFromOtherDevice'] = (await read).conversation.lastReadMessageIndex;
+
+      // Someone else reads: the basis for read receipts.
+      final receipt = next<ParticipantUpdated>(
+        (e) =>
+            e.participant.identity == other &&
+            e.reason == ParticipantUpdateReason.lastReadMessageIndex &&
+            e.participant.lastReadMessageIndex == 2,
+      );
+      debugPrint('POC-REST read $sid $other 2');
+      results['otherParticipantRead'] = (await receipt).participant.lastReadMessageIndex;
+
+      // Removed by the backend.
+      final deleted = next<ConversationDeleted>((e) => e.conversationSid == sid);
+      debugPrint('POC-REST remove $sid $me');
+      results['deletedEvent'] = (await deleted).conversationSid == sid;
+      results['stillInMyConversations'] = (await client.myConversations()).any((c) => c.sid == sid);
+
+      final pass =
+          results['lastMessageIndex'] == 2 &&
+          results['readEventAfterAdvance'] == 1 &&
+          results['readIndexAfterAdvanceBackTo0'] == 1 &&
+          results['unreadAfterSetAllRead'] == 0 &&
+          results['readEventAfterSetAllRead'] == 2 &&
+          results['readEventFromOtherDevice'] == 0 &&
+          results['otherParticipantRead'] == 2 &&
+          results['deletedEvent'] == true &&
+          results['stillInMyConversations'] == false;
+      report('U1', pass: pass, data: results);
+      expect(pass, isTrue, reason: '$results');
+    });
+  }, skip: notNamed('U1'));
 }

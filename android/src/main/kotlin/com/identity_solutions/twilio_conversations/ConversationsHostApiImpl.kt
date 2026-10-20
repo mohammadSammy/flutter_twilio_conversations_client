@@ -11,6 +11,7 @@ import com.twilio.conversations.Message
 import com.twilio.conversations.Participant
 import com.twilio.conversations.StatusListener
 import com.twilio.conversations.User
+import com.twilio.conversations.extensions.advanceLastReadMessageIndex
 import com.twilio.conversations.extensions.build
 import com.twilio.conversations.extensions.buildAndSend
 import com.twilio.conversations.extensions.getConversation
@@ -21,6 +22,7 @@ import com.twilio.conversations.extensions.getTemporaryContentUrl
 import com.twilio.conversations.extensions.getUnreadMessagesCount
 import com.twilio.conversations.extensions.join
 import com.twilio.conversations.extensions.registerFCMToken
+import com.twilio.conversations.extensions.setAllMessagesRead
 import com.twilio.conversations.extensions.setLastReadMessageIndex
 import com.twilio.util.ErrorInfo
 import com.twilio.util.TwilioException
@@ -148,6 +150,21 @@ class ConversationsHostApiImpl(
     override suspend fun setLastReadMessageIndex(conversationSid: String, index: Long): Long? {
         val conversation = conversation(conversationSid)
         return twilio { conversation.setLastReadMessageIndex(index) }
+    }
+
+    /** Like setLastReadMessageIndex, but never moves the read position back. */
+    override suspend fun advanceLastReadMessageIndex(conversationSid: String, index: Long): Long? {
+        val conversation = conversation(conversationSid)
+        // iOS ignores an index behind the current one; Android fails with "Consumption index already beyond
+        // requested index". Match iOS: leave the read position as it is.
+        val current = runCatching { conversation.lastReadMessageIndex }.getOrNull()
+        if (current != null && index < current) return twilio { conversation.getUnreadMessagesCount() }
+        return twilio { conversation.advanceLastReadMessageIndex(index) }
+    }
+
+    override suspend fun setAllMessagesRead(conversationSid: String): Long? {
+        val conversation = conversation(conversationSid)
+        return twilio { conversation.setAllMessagesRead() }
     }
 
     override suspend fun sendText(conversationSid: String, body: String): MessageData {
@@ -290,15 +307,19 @@ class ConversationsHostApiImpl(
             events.send(ConversationAddedEvent(conversation.toData()))
         }
 
+        /** The current user left or was removed, or the conversation was closed or deleted. */
         override fun onConversationDeleted(conversation: Conversation) {
             listenedConversations.remove(conversation.sid)
+            events.send(ConversationDeletedEvent(conversation.sid))
         }
 
         override fun onError(errorInfo: ErrorInfo) {
             events.send(ClientErrorEvent("twilio", errorInfo.message, errorInfo.code.toLong()))
         }
 
-        override fun onConversationUpdated(conversation: Conversation, reason: Conversation.UpdateReason) {}
+        override fun onConversationUpdated(conversation: Conversation, reason: Conversation.UpdateReason) {
+            events.send(ConversationUpdatedEvent(conversation.toData(), reason.platform))
+        }
         override fun onConversationSynchronizationChange(conversation: Conversation) {}
         override fun onUserUpdated(user: User, reason: User.UpdateReason) {}
         override fun onUserSubscribed(user: User) {}
@@ -330,7 +351,9 @@ class ConversationsHostApiImpl(
 
         override fun onMessageDeleted(message: Message) {}
         override fun onParticipantAdded(participant: Participant) {}
-        override fun onParticipantUpdated(participant: Participant, reason: Participant.UpdateReason) {}
+        override fun onParticipantUpdated(participant: Participant, reason: Participant.UpdateReason) {
+            events.send(ParticipantUpdatedEvent(participant.conversation.sid, participant.toData(), reason.platform))
+        }
         override fun onParticipantDeleted(participant: Participant) {}
         override fun onSynchronizationChanged(conversation: Conversation) {}
     }
