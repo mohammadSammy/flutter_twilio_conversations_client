@@ -1,3 +1,7 @@
+## 0.1.4 (2026-10-23)
+
+* Fixed: calls on a conversation created moments ago failed on Android until it had loaded its messages and participants, for example `getParticipantByIdentity` with "Participants are not available at the moment". On iOS they returned nothing instead. Calls that need a loaded conversation now wait until it has loaded, on both platforms: `getParticipantByIdentity`, `getMessagesBefore`, `getLastMessages`, `setLastReadMessageIndex`, `advanceLastReadMessageIndex`, `setAllMessagesRead`, `sendText`, `sendMedia` and `getMediaTemporaryUrl`. Android waits with Twilio's own `waitForSynchronization`, iOS with the client delegate's sync callback, as Twilio's demo apps do. There is no time limit; a failed sync, the user leaving the conversation or a shutdown fails the call. They don't wait for a conversation the user hasn't joined.
+
 ## 0.1.3 (2026-10-20)
 
 * New events:

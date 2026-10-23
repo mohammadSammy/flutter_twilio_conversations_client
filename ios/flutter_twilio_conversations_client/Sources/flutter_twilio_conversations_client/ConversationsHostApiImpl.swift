@@ -12,6 +12,9 @@ final class ConversationsHostApiImpl: NSObject, ConversationsHostApi {
   /// Uploads in progress, and the background task that keeps them going after the user
   /// leaves the app (api-design §6).
   private var uploadsInProgress = 0
+
+  /// Calls waiting in syncedConversation, by conversation sid.
+  private var syncWaiters: [String: [CheckedContinuation<Void, Error>]] = [:]
   private var uploadBackgroundTask: UIBackgroundTaskIdentifier = .invalid
 
   // Flutter registers plugins on the main thread, but `register` itself isn't main-actor isolated.
@@ -56,6 +59,7 @@ final class ConversationsHostApiImpl: NSObject, ConversationsHostApi {
     client?.delegate = nil  // nothing from the old client reaches a later session
     client?.shutdown()
     client = nil
+    syncWaiters.keys.forEach { endSyncWaits($0, throwing: PluginErrors.notConnected) }
   }
 
   nonisolated func setLogLevel(level: PlatformLogLevel) throws {
@@ -105,7 +109,7 @@ final class ConversationsHostApiImpl: NSObject, ConversationsHostApi {
   }
 
   func getParticipantByIdentity(conversationSid: String, identity: String) async throws -> ParticipantData? {
-    try await conversation(conversationSid).participant(withIdentity: identity)?.toData()
+    try await syncedConversation(conversationSid).participant(withIdentity: identity)?.toData()
   }
 
   // MARK: Messages and read state
@@ -120,14 +124,14 @@ final class ConversationsHostApiImpl: NSObject, ConversationsHostApi {
   }
 
   func getMessagesBefore(conversationSid: String, index: Int64, count: Int64) async throws -> [MessageData] {
-    let conversation = try await conversation(conversationSid)
+    let conversation = try await syncedConversation(conversationSid)
     return try await messages(in: conversationSid) {
       conversation.getMessagesBefore(UInt(index), withCount: UInt(count), completion: $0)
     }
   }
 
   func getLastMessages(conversationSid: String, count: Int64) async throws -> [MessageData] {
-    let conversation = try await conversation(conversationSid)
+    let conversation = try await syncedConversation(conversationSid)
     return try await messages(in: conversationSid) { conversation.getLastMessages(withCount: UInt(count), completion: $0) }
   }
 
@@ -143,7 +147,7 @@ final class ConversationsHostApiImpl: NSObject, ConversationsHostApi {
 
   /// Returns the unread count after the change.
   func setLastReadMessageIndex(conversationSid: String, index: Int64) async throws -> Int64? {
-    let conversation = try await conversation(conversationSid)
+    let conversation = try await syncedConversation(conversationSid)
     return try await withCheckedThrowingContinuation { continuation in
       conversation.setLastReadMessageIndex(NSNumber(value: index)) { result, count in
         continuation.resume(with: result.isSuccessful ? .success(Int64(count)) : .failure(PluginErrors.from(result)))
@@ -153,7 +157,7 @@ final class ConversationsHostApiImpl: NSObject, ConversationsHostApi {
 
   /// Like setLastReadMessageIndex, but never moves the read position back.
   func advanceLastReadMessageIndex(conversationSid: String, index: Int64) async throws -> Int64? {
-    let conversation = try await conversation(conversationSid)
+    let conversation = try await syncedConversation(conversationSid)
     return try await withCheckedThrowingContinuation { continuation in
       conversation.advanceLastReadMessageIndex(NSNumber(value: index)) { result, count in
         continuation.resume(with: result.isSuccessful ? .success(Int64(count)) : .failure(PluginErrors.from(result)))
@@ -162,7 +166,7 @@ final class ConversationsHostApiImpl: NSObject, ConversationsHostApi {
   }
 
   func setAllMessagesRead(conversationSid: String) async throws -> Int64? {
-    let conversation = try await conversation(conversationSid)
+    let conversation = try await syncedConversation(conversationSid)
     // Swift only offers the async form of this zero-argument call; the completion form is shadowed.
     let (result, count) = await conversation.setAllMessagesRead()
     guard result.isSuccessful else { throw PluginErrors.from(result) }
@@ -170,14 +174,14 @@ final class ConversationsHostApiImpl: NSObject, ConversationsHostApi {
   }
 
   func sendText(conversationSid: String, body: String) async throws -> MessageData {
-    let conversation = try await conversation(conversationSid)
+    let conversation = try await syncedConversation(conversationSid)
     return try await send(conversation.prepareMessage().setBody(body), in: conversationSid)
   }
 
   func sendMedia(conversationSid: String, uploadId: String, filePath: String, contentType: String, filename: String?)
     async throws -> MessageData
   {
-    let conversation = try await conversation(conversationSid)
+    let conversation = try await syncedConversation(conversationSid)
     // The size comes from URL resource values: attributesOfItem is one of Apple's
     // required-reason APIs, which would need a privacy-manifest declaration.
     guard let stream = InputStream(fileAtPath: filePath),
@@ -244,7 +248,7 @@ final class ConversationsHostApiImpl: NSObject, ConversationsHostApi {
   }
 
   func getMediaTemporaryUrl(conversationSid: String, messageIndex: Int64, mediaSid: String) async throws -> String {
-    let conversation = try await conversation(conversationSid)
+    let conversation = try await syncedConversation(conversationSid)
     let message: TCHMessage = try await withCheckedThrowingContinuation { continuation in
       conversation.message(withIndex: NSNumber(value: messageIndex)) { result, message in
         if result.isSuccessful, let message {
@@ -287,6 +291,27 @@ final class ConversationsHostApiImpl: NSObject, ConversationsHostApi {
   private func connectedClient() throws -> TwilioConversationsClient {
     guard let client else { throw PluginErrors.notConnected }
     return client
+  }
+
+  /// A conversation whose messages and participants are loaded. A conversation created moments ago is still
+  /// loading; until then iOS returns nil for a participant or the read index (Android throws). Waits until it
+  /// has synced or failed, as the client delegate reports it (Twilio's demo app waits the same way). The user
+  /// leaving or a shutdown fails the call. A conversation this identity hasn't joined never syncs, so it doesn't
+  /// wait for one.
+  private func syncedConversation(_ sid: String) async throws -> TCHConversation {
+    let conversation = try await conversation(sid)
+    guard !conversation.isSynced, conversation.status == .joined, let key = conversation.sid else {
+      return conversation
+    }
+    // No suspension between the check above and registering, and delegate calls run on the main actor.
+    try await withCheckedThrowingContinuation { syncWaiters[key, default: []].append($0) }
+    return conversation
+  }
+
+  private func endSyncWaits(_ sid: String, throwing error: Error? = nil) {
+    syncWaiters.removeValue(forKey: sid)?.forEach { waiter in
+      if let error { waiter.resume(throwing: error) } else { waiter.resume() }
+    }
   }
 
   private func conversation(_ sidOrUniqueName: String) async throws -> TCHConversation {
@@ -357,6 +382,10 @@ final class ConversationsHostApiImpl: NSObject, ConversationsHostApi {
     }
     return data
   }
+}
+
+extension TCHConversation {
+  fileprivate var isSynced: Bool { synchronizationStatus == .all || synchronizationStatus == .failed }
 }
 
 /// Remembers why a media upload failed, so the send error can say so.
@@ -451,6 +480,7 @@ extension ConversationsHostApiImpl: TwilioConversationsClientDelegate {
   nonisolated func conversationsClient(_ client: TwilioConversationsClient, conversationDeleted conversation: TCHConversation) {
     MainActor.assumeIsolated {
       guard let sid = conversation.sid else { return }
+      endSyncWaits(sid, throwing: PluginErrors.twilio("conversation \(sid) was removed while it was loading"))
       events.send(ConversationDeletedEvent(conversationSid: sid))
     }
   }
@@ -462,6 +492,16 @@ extension ConversationsHostApiImpl: TwilioConversationsClientDelegate {
     MainActor.assumeIsolated {
       guard let sid = conversation.sid, let data = participant.toData(), let reason = updated.platform else { return }
       events.send(ParticipantUpdatedEvent(conversationSid: sid, participant: data, reason: reason))
+    }
+  }
+
+  nonisolated func conversationsClient(
+    _ client: TwilioConversationsClient, conversation: TCHConversation,
+    synchronizationStatusUpdated status: TCHConversationSynchronizationStatus
+  ) {
+    MainActor.assumeIsolated {
+      guard conversation.isSynced, let sid = conversation.sid else { return }
+      endSyncWaits(sid)
     }
   }
 

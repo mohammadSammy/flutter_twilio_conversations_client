@@ -31,6 +31,10 @@ import java.io.FileInputStream
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.CancellableContinuation
+import com.twilio.conversations.extensions.waitForSynchronization
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 
 /**
@@ -46,6 +50,9 @@ class ConversationsHostApiImpl(
 
     /** Android reports messages and typing per conversation, so each one gets [conversationListener] once. */
     private val listenedConversations = mutableSetOf<String>()
+
+    /** Calls waiting in [syncedConversation], by conversation sid; failing one ends that call's wait. */
+    private val syncWaits = mutableMapOf<String, MutableList<CompletableDeferred<Unit>>>()
 
     // Client
 
@@ -90,6 +97,7 @@ class ConversationsHostApiImpl(
         client = null
         syncStatus = null
         listenedConversations.clear()
+        syncWaits.keys.toList().forEach { endSyncWaits(it, PluginErrors.notConnected) }
     }
 
     override fun setLogLevel(level: PlatformLogLevel) {
@@ -121,7 +129,7 @@ class ConversationsHostApiImpl(
     }
 
     override suspend fun getParticipantByIdentity(conversationSid: String, identity: String): ParticipantData? =
-        conversation(conversationSid).getParticipantByIdentity(identity)?.toData()
+        syncedConversation(conversationSid).getParticipantByIdentity(identity)?.toData()
 
     // Messages and read state
 
@@ -131,12 +139,12 @@ class ConversationsHostApiImpl(
     }
 
     override suspend fun getMessagesBefore(conversationSid: String, index: Long, count: Long): List<MessageData> {
-        val conversation = conversation(conversationSid)
+        val conversation = syncedConversation(conversationSid)
         return twilio { conversation.getMessagesBefore(index, count.toInt()) }.map { it.toData() }
     }
 
     override suspend fun getLastMessages(conversationSid: String, count: Long): List<MessageData> {
-        val conversation = conversation(conversationSid)
+        val conversation = syncedConversation(conversationSid)
         return twilio { conversation.getLastMessages(count.toInt()) }.map { it.toData() }
     }
 
@@ -148,13 +156,13 @@ class ConversationsHostApiImpl(
 
     /** Returns the unread count after the change. */
     override suspend fun setLastReadMessageIndex(conversationSid: String, index: Long): Long? {
-        val conversation = conversation(conversationSid)
+        val conversation = syncedConversation(conversationSid)
         return twilio { conversation.setLastReadMessageIndex(index) }
     }
 
     /** Like setLastReadMessageIndex, but never moves the read position back. */
     override suspend fun advanceLastReadMessageIndex(conversationSid: String, index: Long): Long? {
-        val conversation = conversation(conversationSid)
+        val conversation = syncedConversation(conversationSid)
         // iOS ignores an index behind the current one; Android fails with "Consumption index already beyond
         // requested index". Match iOS: leave the read position as it is.
         val current = runCatching { conversation.lastReadMessageIndex }.getOrNull()
@@ -163,12 +171,12 @@ class ConversationsHostApiImpl(
     }
 
     override suspend fun setAllMessagesRead(conversationSid: String): Long? {
-        val conversation = conversation(conversationSid)
+        val conversation = syncedConversation(conversationSid)
         return twilio { conversation.setAllMessagesRead() }
     }
 
     override suspend fun sendText(conversationSid: String, body: String): MessageData {
-        val builder = conversation(conversationSid).prepareMessage().setBody(body)
+        val builder = syncedConversation(conversationSid).prepareMessage().setBody(body)
         return twilio { builder.buildAndSend() }.toData()
     }
 
@@ -179,7 +187,7 @@ class ConversationsHostApiImpl(
         contentType: String,
         filename: String?,
     ): MessageData {
-        val conversation = conversation(conversationSid)
+        val conversation = syncedConversation(conversationSid)
         val file = File(filePath)
         if (!file.canRead()) throw PluginErrors.mediaUpload("cannot read $filePath")
         val totalBytes = file.length()
@@ -219,7 +227,7 @@ class ConversationsHostApiImpl(
     }
 
     override suspend fun getMediaTemporaryUrl(conversationSid: String, messageIndex: Long, mediaSid: String): String {
-        val conversation = conversation(conversationSid)
+        val conversation = syncedConversation(conversationSid)
         val message = twilio { conversation.getMessageByIndex(messageIndex) }
         val media = message.attachedMedia.firstOrNull { it.sid == mediaSid }
             ?: throw PluginErrors.twilio("message $messageIndex has no media $mediaSid")
@@ -250,6 +258,38 @@ class ConversationsHostApiImpl(
         listenTo(conversation)
         return conversation
     }
+
+    /**
+     * A conversation whose messages and participants are loaded. Until then Android throws for them, and a
+     * conversation created moments ago is still loading: waits for it with Twilio's waitForSynchronization, as
+     * Twilio's demo app does. A failed sync, the user leaving or a shutdown fails the call. A conversation this
+     * identity hasn't joined never syncs, so it doesn't wait for one and Twilio's own error surfaces.
+     */
+    private suspend fun syncedConversation(sid: String): Conversation {
+        val conversation = conversation(sid)
+        if (conversation.isSynced || conversation.status != Conversation.ConversationStatus.JOINED) return conversation
+        val ended = CompletableDeferred<Unit>()
+        syncWaits.getOrPut(conversation.sid) { mutableListOf() }.add(ended)
+        try {
+            coroutineScope {
+                // Twilio's own wait has no way out on shutdown or a delete; ended failing cancels it.
+                val end = launch { ended.await() }
+                twilio { conversation.waitForSynchronization() }
+                end.cancel()
+            }
+        } finally {
+            syncWaits[conversation.sid]?.remove(ended)
+        }
+        return conversation
+    }
+
+    private fun endSyncWaits(sid: String, error: Throwable) {
+        syncWaits.remove(sid)?.forEach { it.completeExceptionally(error) }
+    }
+
+    private val Conversation.isSynced
+        get() = synchronizationStatus.isAtLeast(Conversation.SynchronizationStatus.ALL) ||
+            synchronizationStatus == Conversation.SynchronizationStatus.FAILED
 
     private fun listenTo(conversation: Conversation) {
         if (listenedConversations.add(conversation.sid)) conversation.addListener(conversationListener)
@@ -310,6 +350,7 @@ class ConversationsHostApiImpl(
         /** The current user left or was removed, or the conversation was closed or deleted. */
         override fun onConversationDeleted(conversation: Conversation) {
             listenedConversations.remove(conversation.sid)
+            endSyncWaits(conversation.sid, PluginErrors.twilio("conversation ${conversation.sid} was removed while it was loading"))
             events.send(ConversationDeletedEvent(conversation.sid))
         }
 
