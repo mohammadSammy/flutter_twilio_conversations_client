@@ -16,6 +16,9 @@ A general-purpose Flutter plugin wrapping Twilio's native Conversations SDKs (iO
 | [docs/technical-parameters.md](docs/technical-parameters.md) | Pinned versions (Flutter, Twilio SDKs, Pigeon), platform minimums, why Swift Package Manager only |
 | [docs/poc-success-criteria.md](docs/poc-success-criteria.md) | Criteria A1–G, tested on real devices |
 | [docs/poc-results.md](docs/poc-results.md) | Measured results for the Must criteria, Twilio error codes, fixes found by testing |
+| [docs/device-testing.md](docs/device-testing.md) | Record of the device-testing phase (C10): test setup, decisions, open items |
+| [docs/releases.md](docs/releases.md) | Every release with its commit and how it was tested, and how to release |
+| [docs/sync-wait.md](docs/sync-wait.md) | Record of 0.1.4: calls waiting for a conversation's sync, and why it's done this way |
 | [example/README.md](example/README.md) | The example app as the test harness: setup and which control checks which criterion |
 
 ## Layout
